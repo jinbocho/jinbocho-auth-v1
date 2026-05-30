@@ -2,11 +2,12 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user_payload, get_db, require_role
+from app.application.use_cases import pwd_context
 from app.infrastructure.models import UserModel
 
 router = APIRouter()
@@ -23,6 +24,13 @@ class UserResponse(BaseModel):
     is_active: bool
 
 
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8)
+    full_name: str = Field(min_length=1, max_length=255)
+    role: str = Field(pattern="^(admin|editor|viewer)$")
+
+
 class UserUpdate(BaseModel):
     full_name: str | None = None
     role: str | None = None
@@ -32,6 +40,29 @@ class UserUpdate(BaseModel):
 @router.get("/me")
 async def get_me(payload: dict = Depends(get_current_user_payload)):
     return payload
+
+
+@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    request: UserCreate,
+    payload: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(UserModel).where(UserModel.email == request.email))
+    if result.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+
+    user = UserModel(
+        family_id=UUID(payload["family_id"]),
+        email=request.email,
+        password_hash=pwd_context.hash(request.password),
+        full_name=request.full_name,
+        role=request.role,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
 
 
 @router.get("/", response_model=list[UserResponse])

@@ -44,4 +44,5 @@ docker run --rm -p 8001:8001 --env-file .env jinbocho-auth-service
 ## Notes
 
 - The service creates its tables on startup for scaffolding convenience.
-- `login` is functional; `refresh` and `logout` are intentionally placeholder endpoints for the next iteration.
+- Alembic configuration and an initial schema migration are included for future migration-based workflows.
+- The auth flow supports login, refresh token rotation, and refresh token revocation on logout.
