@@ -1,12 +1,13 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
-
-from app.api.dependencies import AsyncSession, get_db, require_role
-from app.infrastructure.models import FamilyModel
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.dependencies import get_db, require_role
+from app.infrastructure.models import FamilyModel
 
 router = APIRouter()
 
@@ -57,7 +58,7 @@ async def update_family(
 
     for field, value in request.model_dump(exclude_unset=True).items():
         setattr(family, field, value)
-    family.updated_at = datetime.utcnow()
+    family.updated_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(family)
     return family

@@ -1,11 +1,13 @@
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
-from uuid import UUID, uuid4
+import secrets
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from jose import jwt
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_db
@@ -13,6 +15,7 @@ from app.application.use_cases import RegisterFamilyInput, RegisterFamilyUseCase
 from app.config import settings
 from app.infrastructure.models import RefreshTokenModel, UserModel
 from app.infrastructure.repositories import SQLAlchemyFamilyRepository, SQLAlchemyUserRepository
+from app.limiter import limiter
 
 router = APIRouter()
 
@@ -74,12 +77,14 @@ def build_access_token_payload(user: UserModel) -> dict:
 
 def create_access_token(data: dict) -> str:
     payload = data.copy()
-    payload["exp"] = utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
+    now = utcnow()
+    payload["iat"] = now
+    payload["exp"] = now + timedelta(minutes=settings.access_token_expire_minutes)
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
 def create_refresh_token() -> str:
-    return uuid4().hex
+    return secrets.token_hex(32)  # 256-bit cryptographically secure token
 
 
 def hash_token(token: str) -> str:
@@ -87,30 +92,37 @@ def hash_token(token: str) -> str:
 
 
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
-async def register_family(request: RegisterRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def register_family(request: Request, body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     user_repo = SQLAlchemyUserRepository(db)
-    if await user_repo.find_by_email(request.admin_email):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
-
     use_case = RegisterFamilyUseCase(SQLAlchemyFamilyRepository(db), user_repo)
-    result = await use_case.execute(
-        RegisterFamilyInput(
-            family_name=request.family_name,
-            admin_email=request.admin_email,
-            admin_password=request.admin_password,
-            admin_full_name=request.admin_full_name,
+    try:
+        result = await use_case.execute(
+            RegisterFamilyInput(
+                family_name=body.family_name,
+                admin_email=body.admin_email,
+                admin_password=body.admin_password,
+                admin_full_name=body.admin_full_name,
+            )
         )
-    )
-    await db.commit()
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
     return RegisterResponse(family_id=result.family_id, user_id=result.user_id)
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(UserModel).where(UserModel.email == request.email))
+@limiter.limit("10/minute")
+async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(UserModel).where(UserModel.email == body.email))
     user = result.scalar_one_or_none()
-    if not user or not pwd_context.verify(request.password, user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    if not user or not pwd_context.verify(body.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive")
 
@@ -128,14 +140,19 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(request: RefreshRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def refresh_token(request: Request, body: RefreshRequest, db: AsyncSession = Depends(get_db)):
     now = utcnow()
     result = await db.execute(
-        select(RefreshTokenModel).where(RefreshTokenModel.token_hash == hash_token(request.refresh_token))
+        select(RefreshTokenModel).where(RefreshTokenModel.token_hash == hash_token(body.refresh_token))
     )
     stored_token = result.scalar_one_or_none()
     if not stored_token or stored_token.expires_at < now or stored_token.revoked_at is not None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     user = await db.get(UserModel, stored_token.user_id)
     if not user:
@@ -161,9 +178,9 @@ async def refresh_token(request: RefreshRequest, db: AsyncSession = Depends(get_
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-async def logout(request: LogoutRequest, db: AsyncSession = Depends(get_db)) -> Response:
+async def logout(body: LogoutRequest, db: AsyncSession = Depends(get_db)) -> Response:
     result = await db.execute(
-        select(RefreshTokenModel).where(RefreshTokenModel.token_hash == hash_token(request.refresh_token))
+        select(RefreshTokenModel).where(RefreshTokenModel.token_hash == hash_token(body.refresh_token))
     )
     stored_token = result.scalar_one_or_none()
     if stored_token and stored_token.revoked_at is None:

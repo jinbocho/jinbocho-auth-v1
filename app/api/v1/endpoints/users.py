@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -37,9 +37,15 @@ class UserUpdate(BaseModel):
     is_active: bool | None = None
 
 
-@router.get("/me")
-async def get_me(payload: dict = Depends(get_current_user_payload)):
-    return payload
+@router.get("/me", response_model=UserResponse)
+async def get_me(
+    payload: dict = Depends(get_current_user_payload),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await db.get(UserModel, UUID(payload["sub"]))
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return user
 
 
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -91,7 +97,7 @@ async def update_user(
 
     for field, value in request.model_dump(exclude_unset=True).items():
         setattr(user, field, value)
-    user.updated_at = datetime.utcnow()
+    user.updated_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(user)
     return user

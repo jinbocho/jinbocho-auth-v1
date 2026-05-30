@@ -1,18 +1,16 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.api.v1.router import router as v1_router
-from app.config import settings
-from app.infrastructure import models as infrastructure_models
-from app.infrastructure.database.session import Base, engine
+from app.limiter import limiter
+import app.infrastructure.models  # noqa: F401 — registers ORM models with SQLAlchemy
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    infrastructure_models
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
     yield
 
 
@@ -21,6 +19,9 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(v1_router, prefix="/v1")
 

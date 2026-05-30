@@ -9,6 +9,13 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+# Load .env file if present
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 # Override sqlalchemy.url from environment variable
 database_url = os.environ.get("DATABASE_URL")
 if database_url:
