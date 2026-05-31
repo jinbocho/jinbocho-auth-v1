@@ -1,0 +1,65 @@
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.domain.entities import RefreshToken
+from app.domain.repositories import RefreshTokenRepository
+from app.infrastructure.models import RefreshTokenModel
+
+
+class SQLAlchemyRefreshTokenRepository(RefreshTokenRepository):
+    def __init__(self, session: AsyncSession):
+        self._session = session
+
+    @staticmethod
+    def _to_entity(model: RefreshTokenModel) -> RefreshToken:
+        return RefreshToken(
+            id=model.id,
+            user_id=model.user_id,
+            token_hash=model.token_hash,
+            expires_at=model.expires_at,
+            revoked_at=model.revoked_at,
+            created_at=model.created_at,
+        )
+
+    async def save(self, token: RefreshToken) -> RefreshToken:
+        model = RefreshTokenModel(
+            id=token.id,
+            user_id=token.user_id,
+            token_hash=token.token_hash,
+            expires_at=token.expires_at,
+            revoked_at=token.revoked_at,
+            created_at=token.created_at,
+        )
+        self._session.add(model)
+        await self._session.flush()
+        await self._session.refresh(model)
+        return self._to_entity(model)
+
+    async def find_by_hash(self, token_hash: str):
+        result = await self._session.execute(
+            select(RefreshTokenModel).where(RefreshTokenModel.token_hash == token_hash)
+        )
+        model = result.scalar_one_or_none()
+        return self._to_entity(model) if model else None
+
+    async def revoke(self, token_hash: str) -> None:
+        result = await self._session.execute(
+            select(RefreshTokenModel).where(RefreshTokenModel.token_hash == token_hash)
+        )
+        model = result.scalar_one_or_none()
+        if model:
+            from app.application.services import TokenService
+            model.revoked_at = TokenService.utcnow()
+            await self._session.flush()
+
+    async def cleanup_expired(self) -> int:
+        from app.application.services import TokenService
+        now = TokenService.utcnow()
+        result = await self._session.execute(
+            select(RefreshTokenModel).where(RefreshTokenModel.expires_at < now)
+        )
+        models = result.scalars().all()
+        for model in models:
+            await self._session.delete(model)
+        await self._session.flush()
+        return len(models)

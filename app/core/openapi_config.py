@@ -1,0 +1,27 @@
+"""OpenAPI 3.0 configuration and metadata."""
+
+OPENAPI_TAGS_METADATA = [
+    {
+        "name": "auth",
+        "description": "User authentication: register, login, refresh tokens, logout.",
+    },
+    {
+        "name": "users",
+        "description": "User management: create, read, update, delete users within a family. Requires admin role.",
+    },
+    {
+        "name": "families",
+        "description": "Family management: get and update family information. Requires admin role.",
+    },
+]
+
+OPENAPI_CONFIG = {
+    "title": "Jinbocho Auth Service",
+    "version": "0.1.0",
+    "description": "Authentication and family user management service for Jinbocho home library system. "
+    "Provides JWT-based auth with refresh token rotation and multi-tenant family isolation.",
+    "openapi_tags": OPENAPI_TAGS_METADATA,
+    "docs_url": "/docs",
+    "redoc_url": "/redoc",
+    "openapi_url": "/openapi.json",
+}

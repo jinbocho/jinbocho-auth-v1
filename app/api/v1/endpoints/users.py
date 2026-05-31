@@ -1,118 +1,144 @@
-from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user_payload, get_db, require_role
-from app.application.use_cases import pwd_context
-from app.infrastructure.models import UserModel
+from app.api.v1.schemas.user_schemas import UserResponse, UserCreate, UserUpdate
+from app.application.use_cases.users import (
+    CreateUserUseCase,
+    CreateUserInput,
+    GetUserUseCase,
+    GetUserInput,
+    ListUsersUseCase,
+    ListUsersInput,
+    UpdateUserUseCase,
+    UpdateUserInput,
+    DeleteUserUseCase,
+    DeleteUserInput,
+)
+from app.infrastructure.repositories import SQLAlchemyUserRepository
 
 router = APIRouter()
 
 
-class UserResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    family_id: UUID
-    email: EmailStr
-    full_name: str
-    role: str
-    is_active: bool
-
-
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=8)
-    full_name: str = Field(min_length=1, max_length=255)
-    role: str = Field(pattern="^(admin|editor|viewer)$")
-
-
-class UserUpdate(BaseModel):
-    full_name: str | None = None
-    role: str | None = None
-    is_active: bool | None = None
-
-
-@router.get("/me", response_model=UserResponse)
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    summary="Get current user",
+    description="Get current authenticated user's information."
+)
 async def get_me(
     payload: dict = Depends(get_current_user_payload),
     db: AsyncSession = Depends(get_db),
 ):
-    user = await db.get(UserModel, UUID(payload["sub"]))
-    if not user:
+    user_repo = SQLAlchemyUserRepository(db)
+    use_case = GetUserUseCase(user_repo)
+    try:
+        result = await use_case.execute(
+            GetUserInput(user_id=UUID(payload["sub"]), requester_family_id=UUID(payload["family_id"]))
+        )
+        return UserResponse(**result.__dict__)
+    except LookupError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    return user
 
 
-@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create new user",
+    description="Create new user in family. Requires admin role."
+)
 async def create_user(
     request: UserCreate,
     payload: dict = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(UserModel).where(UserModel.email == request.email))
-    if result.scalar_one_or_none():
+    user_repo = SQLAlchemyUserRepository(db)
+    use_case = CreateUserUseCase(user_repo)
+    try:
+        result = await use_case.execute(
+            CreateUserInput(
+                family_id=UUID(payload["family_id"]),
+                email=request.email,
+                password=request.password,
+                full_name=request.full_name,
+                role=request.role,
+            )
+        )
+        await db.commit()
+        return UserResponse(**result.__dict__)
+    except ValueError:
+        await db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
-    user = UserModel(
-        family_id=UUID(payload["family_id"]),
-        email=request.email,
-        password_hash=pwd_context.hash(request.password),
-        full_name=request.full_name,
-        role=request.role,
-    )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    return user
 
-
-@router.get("/", response_model=list[UserResponse])
+@router.get(
+    "/",
+    response_model=list[UserResponse],
+    summary="List family users",
+    description="List all users in the family. Requires admin role."
+)
 async def list_users(
     payload: dict = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    family_id = UUID(payload["family_id"])
-    result = await db.execute(
-        select(UserModel).where(UserModel.family_id == family_id).order_by(UserModel.created_at)
-    )
-    return result.scalars().all()
+    user_repo = SQLAlchemyUserRepository(db)
+    use_case = ListUsersUseCase(user_repo)
+    result = await use_case.execute(ListUsersInput(family_id=UUID(payload["family_id"])))
+    return result.users
 
 
-@router.patch("/{user_id}", response_model=UserResponse)
+@router.patch(
+    "/{user_id}",
+    response_model=UserResponse,
+    summary="Update user",
+    description="Update user information. Requires admin role."
+)
 async def update_user(
     user_id: UUID,
     request: UserUpdate,
     payload: dict = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(UserModel).where(UserModel.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user or str(user.family_id) != payload.get("family_id"):
+    user_repo = SQLAlchemyUserRepository(db)
+    use_case = UpdateUserUseCase(user_repo)
+    try:
+        result = await use_case.execute(
+            UpdateUserInput(
+                user_id=user_id,
+                requester_family_id=UUID(payload["family_id"]),
+                full_name=request.full_name,
+                role=request.role,
+                is_active=request.is_active,
+            )
+        )
+        await db.commit()
+        return UserResponse(**result.__dict__)
+    except LookupError:
+        await db.rollback()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    for field, value in request.model_dump(exclude_unset=True).items():
-        setattr(user, field, value)
-    user.updated_at = datetime.now(timezone.utc)
-    await db.commit()
-    await db.refresh(user)
-    return user
 
-
-@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete user",
+    description="Delete user from family. Requires admin role."
+)
 async def delete_user(
     user_id: UUID,
     payload: dict = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(UserModel).where(UserModel.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user or str(user.family_id) != payload.get("family_id"):
+    user_repo = SQLAlchemyUserRepository(db)
+    use_case = DeleteUserUseCase(user_repo)
+    try:
+        await use_case.execute(
+            DeleteUserInput(user_id=user_id, requester_family_id=UUID(payload["family_id"]))
+        )
+        await db.commit()
+    except LookupError:
+        await db.rollback()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    await db.delete(user)
-    await db.commit()

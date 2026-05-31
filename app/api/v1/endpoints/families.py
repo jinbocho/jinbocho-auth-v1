@@ -1,64 +1,73 @@
-from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_db, require_role
-from app.infrastructure.models import FamilyModel
+from app.api.v1.schemas.family_schemas import FamilyResponse, FamilyUpdate
+from app.application.use_cases.families import (
+    GetFamilyUseCase,
+    GetFamilyInput,
+    UpdateFamilyUseCase,
+    UpdateFamilyInput,
+)
+from app.infrastructure.repositories import SQLAlchemyFamilyRepository
 
 router = APIRouter()
 
 
-class FamilyResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    name: str
-    description: str | None = None
-
-
-class FamilyUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
-
-
-@router.get("/{family_id}", response_model=FamilyResponse)
+@router.get(
+    "/{family_id}",
+    response_model=FamilyResponse,
+    summary="Get family information",
+    description="Get family information. Can only access own family."
+)
 async def get_family(
     family_id: UUID,
     payload: dict = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    if payload.get("family_id") != str(family_id):
+    family_repo = SQLAlchemyFamilyRepository(db)
+    use_case = GetFamilyUseCase(family_repo)
+    try:
+        result = await use_case.execute(
+            GetFamilyInput(family_id=family_id, requester_family_id=UUID(payload["family_id"]))
+        )
+        return FamilyResponse(**result.__dict__)
+    except PermissionError:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot access another family")
-
-    result = await db.execute(select(FamilyModel).where(FamilyModel.id == family_id))
-    family = result.scalar_one_or_none()
-    if not family:
+    except LookupError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Family not found")
-    return family
 
 
-@router.patch("/{family_id}", response_model=FamilyResponse)
+@router.patch(
+    "/{family_id}",
+    response_model=FamilyResponse,
+    summary="Update family information",
+    description="Update family information. Can only update own family. Requires admin role."
+)
 async def update_family(
     family_id: UUID,
     request: FamilyUpdate,
     payload: dict = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    if payload.get("family_id") != str(family_id):
+    family_repo = SQLAlchemyFamilyRepository(db)
+    use_case = UpdateFamilyUseCase(family_repo)
+    try:
+        result = await use_case.execute(
+            UpdateFamilyInput(
+                family_id=family_id,
+                requester_family_id=UUID(payload["family_id"]),
+                name=request.name,
+                description=request.description,
+            )
+        )
+        await db.commit()
+        return FamilyResponse(**result.__dict__)
+    except PermissionError:
+        await db.rollback()
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot update another family")
-
-    result = await db.execute(select(FamilyModel).where(FamilyModel.id == family_id))
-    family = result.scalar_one_or_none()
-    if not family:
+    except LookupError:
+        await db.rollback()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Family not found")
-
-    for field, value in request.model_dump(exclude_unset=True).items():
-        setattr(family, field, value)
-    family.updated_at = datetime.now(timezone.utc)
-    await db.commit()
-    await db.refresh(family)
-    return family

@@ -1,24 +1,5 @@
-from abc import ABC, abstractmethod
-from typing import Optional
-from uuid import UUID
+from .family_repository import FamilyRepository
+from .user_repository import UserRepository
+from .refresh_token_repository import RefreshTokenRepository
 
-from app.domain.entities import Family, User
-
-
-class FamilyRepository(ABC):
-    @abstractmethod
-    async def save(self, family: Family) -> Family: ...
-
-    @abstractmethod
-    async def find_by_id(self, id: UUID) -> Optional[Family]: ...
-
-
-class UserRepository(ABC):
-    @abstractmethod
-    async def save(self, user: User) -> User: ...
-
-    @abstractmethod
-    async def find_by_email(self, email: str) -> Optional[User]: ...
-
-    @abstractmethod
-    async def find_by_id(self, id: UUID) -> Optional[User]: ...
+__all__ = ["FamilyRepository", "UserRepository", "RefreshTokenRepository"]

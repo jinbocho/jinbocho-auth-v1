@@ -5,9 +5,12 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.services import TokenService
 from app.config import settings
+from app.domain.repositories import RefreshTokenRepository
 from app.infrastructure.database.session import get_db
 from app.infrastructure.models import UserModel
+from app.infrastructure.repositories import SQLAlchemyRefreshTokenRepository
 
 security = HTTPBearer()
 
@@ -51,5 +54,20 @@ def require_role(*roles: str):
     return checker
 
 
-__all__ = ["AsyncSession", "get_db", "get_current_user_payload", "require_role"]
+def get_token_service() -> TokenService:
+    return TokenService(settings)
+
+
+def get_refresh_token_repository(db: AsyncSession = Depends(get_db)) -> RefreshTokenRepository:
+    return SQLAlchemyRefreshTokenRepository(db)
+
+
+__all__ = [
+    "AsyncSession",
+    "get_db",
+    "get_current_user_payload",
+    "require_role",
+    "get_token_service",
+    "get_refresh_token_repository",
+]
 
