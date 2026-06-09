@@ -23,6 +23,12 @@ class MockUserRepository(UserRepository):
     async def find_by_id(self, id) -> User | None:
         return self.users.get(id)
 
+    async def find_by_family(self, family_id) -> list[User]:
+        return [u for u in self.users.values() if u.family_id == family_id]
+
+    async def delete(self, id) -> None:
+        self.users.pop(id, None)
+
 
 class MockFamilyRepository(FamilyRepository):
     def __init__(self):

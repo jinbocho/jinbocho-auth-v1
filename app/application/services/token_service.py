@@ -16,15 +16,17 @@ class TokenService:
 
     def create_access_token(self, user_id: str, email: str, family_id: str, role: str) -> str:
         """Create a signed JWT access token."""
+        now = self.utcnow()
         payload = {
             "sub": user_id,
             "email": email,
             "family_id": family_id,
             "role": role,
+            "iss": self._settings.jwt_issuer,
+            "aud": self._settings.jwt_audience,
+            "iat": now,
+            "exp": now + timedelta(minutes=self._settings.access_token_expire_minutes),
         }
-        now = self.utcnow()
-        payload["iat"] = now
-        payload["exp"] = now + timedelta(minutes=self._settings.access_token_expire_minutes)
         return jwt.encode(payload, self._settings.jwt_secret_key, algorithm=self._settings.jwt_algorithm)
 
     def create_refresh_token(self) -> str:

@@ -36,10 +36,13 @@ class SQLAlchemyUserRepository(UserRepository):
             created_at=user.created_at,
             updated_at=user.updated_at,
         )
-        self._session.add(model)
+        # merge() performs an upsert: insert for new entities, update for
+        # entities already present in the database (e.g. UpdateUserUseCase).
+        # add() would raise on a duplicate primary key when updating.
+        merged = await self._session.merge(model)
         await self._session.flush()
-        await self._session.refresh(model)
-        return self._to_entity(model)
+        await self._session.refresh(merged)
+        return self._to_entity(merged)
 
     async def find_by_email(self, email: str):
         result = await self._session.execute(select(UserModel).where(UserModel.email == email))
@@ -50,3 +53,16 @@ class SQLAlchemyUserRepository(UserRepository):
         result = await self._session.execute(select(UserModel).where(UserModel.id == id))
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None
+
+    async def find_by_family(self, family_id):
+        result = await self._session.execute(
+            select(UserModel).where(UserModel.family_id == family_id).order_by(UserModel.full_name)
+        )
+        return [self._to_entity(model) for model in result.scalars().all()]
+
+    async def delete(self, id) -> None:
+        result = await self._session.execute(select(UserModel).where(UserModel.id == id))
+        model = result.scalar_one_or_none()
+        if model:
+            await self._session.delete(model)
+            await self._session.flush()

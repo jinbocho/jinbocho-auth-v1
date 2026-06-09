@@ -18,5 +18,4 @@ class DeleteUserUseCase:
         user = await self._user_repo.find_by_id(input.user_id)
         if not user or user.family_id != input.requester_family_id:
             raise LookupError("User not found")
-        # Note: UserRepository doesn't have delete() yet, would need to add it
-        # For now, this is a placeholder
+        await self._user_repo.delete(input.user_id)

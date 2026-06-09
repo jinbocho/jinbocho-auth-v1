@@ -78,10 +78,11 @@ async def create_user(
     "/",
     response_model=list[UserResponse],
     summary="List family users",
-    description="List all users in the family. Requires admin role."
+    description="List all users in the family. Any authenticated family member "
+    "(the roster is needed to show who is reading which book)."
 )
 async def list_users(
-    payload: dict = Depends(require_role("admin")),
+    payload: dict = Depends(get_current_user_payload),
     db: AsyncSession = Depends(get_db),
 ):
     user_repo = SQLAlchemyUserRepository(db)

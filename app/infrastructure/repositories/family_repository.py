@@ -28,10 +28,12 @@ class SQLAlchemyFamilyRepository(FamilyRepository):
             created_at=family.created_at,
             updated_at=family.updated_at,
         )
-        self._session.add(model)
+        # merge upserts by primary key: INSERT for a new family, UPDATE for an
+        # existing one. Plain add() would always INSERT and violate the PK on update.
+        merged = await self._session.merge(model)
         await self._session.flush()
-        await self._session.refresh(model)
-        return self._to_entity(model)
+        await self._session.refresh(merged)
+        return self._to_entity(merged)
 
     async def find_by_id(self, id):
         result = await self._session.execute(select(FamilyModel).where(FamilyModel.id == id))

@@ -9,6 +9,8 @@ class Settings(BaseSettings):
 
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"
+    jwt_issuer: str = "jinbocho-auth"
+    jwt_audience: str = "jinbocho"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 30
 

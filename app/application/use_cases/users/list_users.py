@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
+from app.domain.entities import User
 from app.domain.repositories import UserRepository
 
 
@@ -11,7 +12,7 @@ class ListUsersInput:
 
 @dataclass
 class ListUsersOutput:
-    users: list[dict]
+    users: list[User]
 
 
 class ListUsersUseCase:
@@ -19,6 +20,5 @@ class ListUsersUseCase:
         self._user_repo = user_repo
 
     async def execute(self, input: ListUsersInput) -> ListUsersOutput:
-        # Note: UserRepository doesn't have list_by_family yet, would need to add it
-        # For now, returning empty list as placeholder
-        return ListUsersOutput(users=[])
+        users = await self._user_repo.find_by_family(input.family_id)
+        return ListUsersOutput(users=users)

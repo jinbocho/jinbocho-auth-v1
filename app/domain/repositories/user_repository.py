@@ -14,3 +14,9 @@ class UserRepository(ABC):
 
     @abstractmethod
     async def find_by_id(self, id: UUID) -> Optional[User]: ...
+
+    @abstractmethod
+    async def find_by_family(self, family_id: UUID) -> list[User]: ...
+
+    @abstractmethod
+    async def delete(self, id: UUID) -> None: ...

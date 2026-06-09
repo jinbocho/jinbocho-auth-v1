@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_db, require_role
+from app.api.dependencies import get_current_user_payload, get_db, require_role
 from app.api.v1.schemas.family_schemas import FamilyResponse, FamilyUpdate
 from app.application.use_cases.families import (
     GetFamilyUseCase,
@@ -20,11 +20,11 @@ router = APIRouter()
     "/{family_id}",
     response_model=FamilyResponse,
     summary="Get family information",
-    description="Get family information. Can only access own family."
+    description="Get family information. Any authenticated member of the family."
 )
 async def get_family(
     family_id: UUID,
-    payload: dict = Depends(require_role("admin")),
+    payload: dict = Depends(get_current_user_payload),
     db: AsyncSession = Depends(get_db),
 ):
     family_repo = SQLAlchemyFamilyRepository(db)
