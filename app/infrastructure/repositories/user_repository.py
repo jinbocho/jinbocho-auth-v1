@@ -20,6 +20,8 @@ class SQLAlchemyUserRepository(UserRepository):
             full_name=model.full_name,
             role=model.role,
             is_active=model.is_active,
+            annual_reading_goal=model.annual_reading_goal,
+            language=model.language,
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
@@ -33,6 +35,8 @@ class SQLAlchemyUserRepository(UserRepository):
             full_name=user.full_name,
             role=user.role,
             is_active=user.is_active,
+            annual_reading_goal=user.annual_reading_goal,
+            language=user.language,
             created_at=user.created_at,
             updated_at=user.updated_at,
         )

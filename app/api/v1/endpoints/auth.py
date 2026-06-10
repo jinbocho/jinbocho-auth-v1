@@ -12,6 +12,8 @@ from app.api.v1.schemas.auth_schemas import (
     TokenResponse,
     RefreshRequest,
     LogoutRequest,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
 )
 from app.application.use_cases.auth import (
     RegisterFamilyInput,
@@ -22,9 +24,19 @@ from app.application.use_cases.auth import (
     RefreshTokenUseCase,
     LogoutInput,
     LogoutUseCase,
+    RequestPasswordResetUseCase,
+    RequestPasswordResetInput,
+    ResetPasswordUseCase,
+    ResetPasswordInput,
 )
 from app.application.services import TokenService
-from app.infrastructure.repositories import SQLAlchemyFamilyRepository, SQLAlchemyUserRepository
+from app.config import settings
+from app.infrastructure.email import EmailSender
+from app.infrastructure.repositories import (
+    SQLAlchemyFamilyRepository,
+    SQLAlchemyUserRepository,
+    SQLAlchemyPasswordResetTokenRepository,
+)
 from app.limiter import limiter
 
 router = APIRouter()
@@ -144,4 +156,61 @@ async def logout(
     use_case = LogoutUseCase(refresh_token_repo)
     await use_case.execute(LogoutInput(refresh_token=body.refresh_token))
     await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/forgot-password",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Request password reset",
+    description="Send a password reset link to the given email. Always returns 204 to prevent email enumeration.",
+)
+@limiter.limit("3/minute")
+async def forgot_password(
+    request: Request,
+    body: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    email_sender = EmailSender(
+        host=settings.smtp_host,
+        port=settings.smtp_port,
+        user=settings.smtp_user,
+        password=settings.smtp_password,
+        from_address=settings.email_from,
+    )
+    use_case = RequestPasswordResetUseCase(
+        SQLAlchemyUserRepository(db),
+        SQLAlchemyPasswordResetTokenRepository(db),
+        email_sender,
+    )
+    await use_case.execute(RequestPasswordResetInput(email=body.email))
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/reset-password",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Reset password",
+    description="Consume a reset token and set a new password. Token is single-use and expires in 15 minutes.",
+    responses={
+        400: {"description": "Invalid, expired, or already-used token"},
+    },
+)
+@limiter.limit("5/minute")
+async def reset_password(
+    request: Request,
+    body: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    use_case = ResetPasswordUseCase(
+        SQLAlchemyUserRepository(db),
+        SQLAlchemyPasswordResetTokenRepository(db),
+    )
+    try:
+        await use_case.execute(ResetPasswordInput(token=body.token, new_password=body.new_password))
+        await db.commit()
+    except ValueError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return Response(status_code=status.HTTP_204_NO_CONTENT)

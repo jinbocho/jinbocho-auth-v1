@@ -95,6 +95,27 @@ class LogoutRequest(BaseModel):
     )
 
 
+class ForgotPasswordRequest(BaseModel):
+    """Request body to initiate password reset."""
+    email: EmailStr = Field(description="Email of the account to reset")
+
+    model_config = ConfigDict(
+        json_schema_extra={"example": {"email": "john@example.com"}}
+    )
+
+
+class ResetPasswordRequest(BaseModel):
+    """Request body to complete password reset."""
+    token: str = Field(description="Reset token received via email")
+    new_password: str = Field(min_length=8, description="New password (min 8 chars)")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {"token": "abc123...", "new_password": "NewSecurePass123!"}
+        }
+    )
+
+
 class UserSummary(BaseModel):
     """User summary information."""
     model_config = ConfigDict(from_attributes=True)

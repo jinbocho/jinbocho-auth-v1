@@ -18,6 +18,8 @@ class GetUserOutput:
     full_name: str
     role: str
     is_active: bool
+    annual_reading_goal: int | None = None
+    language: str | None = None
 
 
 class GetUserUseCase:
@@ -36,4 +38,6 @@ class GetUserUseCase:
             full_name=user.full_name,
             role=user.role,
             is_active=user.is_active,
+            annual_reading_goal=user.annual_reading_goal,
+            language=user.language,
         )

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user_payload, get_db, require_role
-from app.api.v1.schemas.user_schemas import UserResponse, UserCreate, UserUpdate
+from app.api.v1.schemas.user_schemas import MeUpdate, UserResponse, UserCreate, UserUpdate
 from app.application.use_cases.users import (
     CreateUserUseCase,
     CreateUserInput,
@@ -92,6 +92,37 @@ async def list_users(
 
 
 @router.patch(
+    "/me",
+    response_model=UserResponse,
+    summary="Update current user",
+    description="Update own profile. Any authenticated user can update their own name and reading goal."
+)
+async def update_me(
+    request: MeUpdate,
+    payload: dict = Depends(get_current_user_payload),
+    db: AsyncSession = Depends(get_db),
+):
+    user_repo = SQLAlchemyUserRepository(db)
+    use_case = UpdateUserUseCase(user_repo)
+    try:
+        result = await use_case.execute(
+            UpdateUserInput(
+                user_id=UUID(payload["sub"]),
+                requester_family_id=UUID(payload["family_id"]),
+                full_name=request.full_name,
+                annual_reading_goal=request.annual_reading_goal,
+                set_annual_reading_goal="annual_reading_goal" in request.model_fields_set,
+                language=request.language,
+            )
+        )
+        await db.commit()
+        return UserResponse(**result.__dict__)
+    except LookupError:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+
+@router.patch(
     "/{user_id}",
     response_model=UserResponse,
     summary="Update user",
@@ -113,6 +144,9 @@ async def update_user(
                 full_name=request.full_name,
                 role=request.role,
                 is_active=request.is_active,
+                annual_reading_goal=request.annual_reading_goal,
+                set_annual_reading_goal="annual_reading_goal" in request.model_fields_set,
+                language=request.language,
             )
         )
         await db.commit()
