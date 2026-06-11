@@ -1,19 +1,73 @@
-GNU AFFERO GENERAL PUBLIC LICENSE
-Version 3, 19 November 2007
+Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International
 
-Copyright (C) 2026 carmelolg
+Copyright (c) 2024 CARMELO LA GAMBA — All rights reserved.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published
-by the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+=============================================================================
+  THIS PROJECT IS THE EXCLUSIVE INTELLECTUAL PROPERTY OF CARMELO LA GAMBA
+=============================================================================
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
+This repository is made publicly visible for transparency and portfolio
+purposes only. The source code, documentation, design, and any other
+content in this repository are protected by copyright law and by the
+terms of the Creative Commons Attribution-NonCommercial-NoDerivatives 4.0
+International License (CC BY-NC-ND 4.0).
 
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
+-----------------------------------------------------------------------------
+YOU ARE FREE TO:
+-----------------------------------------------------------------------------
+  - View and read the source code
+  - Share — copy and redistribute the material in any medium or format,
+    provided you follow the terms below
 
-Full license text: https://www.gnu.org/licenses/agpl-3.0.txt
+-----------------------------------------------------------------------------
+UNDER THE FOLLOWING TERMS:
+-----------------------------------------------------------------------------
+
+  ATTRIBUTION (BY)
+    You must give full and prominent credit to CARMELO LA GAMBA as the
+    original author and sole owner of this project. You must include the
+    following attribution in any permitted use:
+
+      "Originally created by CARMELO LA GAMBA
+       https://github.com/jinbocho"
+
+  NON-COMMERCIAL (NC)
+    You may NOT use this work, in whole or in part, for commercial purposes
+    of any kind — including but not limited to: selling, licensing,
+    sublicensing, incorporating into a commercial product or service,
+    using for paid consulting, or any activity intended to generate revenue —
+    WITHOUT EXPLICIT PRIOR WRITTEN PERMISSION from CARMELO LA GAMBA.
+
+  NO DERIVATIVES (ND)
+    You may NOT remix, transform, adapt, modify, or build upon this work,
+    and you may NOT distribute modified or derivative versions of this work,
+    WITHOUT EXPLICIT PRIOR WRITTEN PERMISSION from CARMELO LA GAMBA.
+
+-----------------------------------------------------------------------------
+NO ADDITIONAL RESTRICTIONS:
+-----------------------------------------------------------------------------
+  You may not apply legal terms or technological measures that legally
+  restrict others from doing anything the license permits.
+
+-----------------------------------------------------------------------------
+DISCLAIMER:
+-----------------------------------------------------------------------------
+  This software is provided "as is", without warranty of any kind. In no
+  event shall CARMELO LA GAMBA be liable for any claim, damages or other
+  liability arising from the use of this software.
+
+-----------------------------------------------------------------------------
+PERMISSIONS & CONTACT:
+-----------------------------------------------------------------------------
+  For commercial use, modification requests, licensing inquiries, or any
+  other permissions not expressly granted by this license, you must obtain
+  explicit written consent from:
+
+    CARMELO LA GAMBA
+    https://github.com/jinbocho
+
+-----------------------------------------------------------------------------
+FULL LICENSE TEXT:
+-----------------------------------------------------------------------------
+  https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode
+  https://creativecommons.org/licenses/by-nc-nd/4.0/
