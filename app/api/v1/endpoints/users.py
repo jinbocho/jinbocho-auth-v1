@@ -113,6 +113,8 @@ async def update_me(
                 annual_reading_goal=request.annual_reading_goal,
                 set_annual_reading_goal="annual_reading_goal" in request.model_fields_set,
                 language=request.language,
+                theme_name=request.theme_name,
+                theme_mode=request.theme_mode,
             )
         )
         await db.commit()
@@ -147,6 +149,8 @@ async def update_user(
                 annual_reading_goal=request.annual_reading_goal,
                 set_annual_reading_goal="annual_reading_goal" in request.model_fields_set,
                 language=request.language,
+                theme_name=request.theme_name,
+                theme_mode=request.theme_mode,
             )
         )
         await db.commit()

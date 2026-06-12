@@ -15,6 +15,8 @@ class UserResponse(BaseModel):
     is_active: bool = Field(description="Whether the user is active")
     annual_reading_goal: int | None = Field(default=None, description="Annual books-read target (null = no goal set)")
     language: str | None = Field(default=None, description="UI language preference: en, it, es, fr")
+    theme_name: str | None = Field(default=None, description="UI theme: pergamena, akabeni, sumi")
+    theme_mode: str | None = Field(default=None, description="UI colour mode: light, dark, system")
 
 
 class UserCreate(BaseModel):
@@ -43,6 +45,8 @@ class UserUpdate(BaseModel):
     is_active: bool | None = Field(default=None, description="Active status")
     annual_reading_goal: int | None = Field(default=None, description="Annual reading goal (null = no goal)")
     language: str | None = Field(default=None, pattern="^(en|it|es|fr)$", description="UI language preference: en, it, es, fr")
+    theme_name: str | None = Field(default=None, pattern="^(pergamena|akabeni|sumi)$", description="UI theme: pergamena, akabeni, sumi")
+    theme_mode: str | None = Field(default=None, pattern="^(light|dark|system)$", description="UI colour mode: light, dark, system")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -62,3 +66,5 @@ class MeUpdate(BaseModel):
     full_name: str | None = Field(default=None, description="New full name")
     annual_reading_goal: int | None = Field(default=None, description="Annual reading goal (null = no goal)")
     language: str | None = Field(default=None, pattern="^(en|it|es|fr)$", description="UI language preference: en, it, es, fr")
+    theme_name: str | None = Field(default=None, pattern="^(pergamena|akabeni|sumi)$", description="UI theme: pergamena, akabeni, sumi")
+    theme_mode: str | None = Field(default=None, pattern="^(light|dark|system)$", description="UI colour mode: light, dark, system")

@@ -17,6 +17,8 @@ class UpdateUserInput:
     annual_reading_goal: int | None = None
     set_annual_reading_goal: bool = False
     language: str | None = None
+    theme_name: str | None = None
+    theme_mode: str | None = None
 
 
 @dataclass
@@ -29,6 +31,8 @@ class UpdateUserOutput:
     is_active: bool
     annual_reading_goal: int | None = None
     language: str | None = None
+    theme_name: str | None = None
+    theme_mode: str | None = None
 
 
 class UpdateUserUseCase:
@@ -50,6 +54,10 @@ class UpdateUserUseCase:
             user.annual_reading_goal = input.annual_reading_goal
         if input.language is not None:
             user.language = input.language
+        if input.theme_name is not None:
+            user.theme_name = input.theme_name
+        if input.theme_mode is not None:
+            user.theme_mode = input.theme_mode
 
         updated_user = await self._user_repo.save(user)
         return UpdateUserOutput(
@@ -61,4 +69,6 @@ class UpdateUserUseCase:
             is_active=updated_user.is_active,
             annual_reading_goal=updated_user.annual_reading_goal,
             language=updated_user.language,
+            theme_name=updated_user.theme_name,
+            theme_mode=updated_user.theme_mode,
         )
