@@ -1,73 +1,26 @@
-Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International
+Jinbocho Source-Available License
+Copyright (c) 2026 Carmelo La Gamba. All rights reserved.
 
-Copyright (c) 2024 CARMELO LA GAMBA — All rights reserved.
+Permission is hereby granted, free of charge, to any individual or household
+to use, copy, and run this software solely for personal, non-commercial,
+private use (the "Community Use").
 
-=============================================================================
-  THIS PROJECT IS THE EXCLUSIVE INTELLECTUAL PROPERTY OF CARMELO LA GAMBA
-=============================================================================
+The following are explicitly PROHIBITED without prior written permission
+from the copyright holder:
 
-This repository is made publicly visible for transparency and portfolio
-purposes only. The source code, documentation, design, and any other
-content in this repository are protected by copyright law and by the
-terms of the Creative Commons Attribution-NonCommercial-NoDerivatives 4.0
-International License (CC BY-NC-ND 4.0).
+1. Any commercial use, including but not limited to selling, licensing,
+   or offering this software or any derivative as a product or service.
+2. Redistribution of this software, in source or binary form, to any
+   third party, whether modified or unmodified.
+3. Use of this software to provide hosted, managed, or installation
+   services to third parties, whether for compensation or not.
+4. Removal or alteration of this copyright notice or license text.
+5. Use of the "Jinbocho" name, logo, or trademarks to endorse or promote
+   any product or service without prior written permission.
 
------------------------------------------------------------------------------
-YOU ARE FREE TO:
------------------------------------------------------------------------------
-  - View and read the source code
-  - Share — copy and redistribute the material in any medium or format,
-    provided you follow the terms below
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+THE COPYRIGHT HOLDER SHALL NOT BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY ARISING FROM THE USE OF THIS SOFTWARE.
 
------------------------------------------------------------------------------
-UNDER THE FOLLOWING TERMS:
------------------------------------------------------------------------------
-
-  ATTRIBUTION (BY)
-    You must give full and prominent credit to CARMELO LA GAMBA as the
-    original author and sole owner of this project. You must include the
-    following attribution in any permitted use:
-
-      "Originally created by CARMELO LA GAMBA
-       https://github.com/jinbocho"
-
-  NON-COMMERCIAL (NC)
-    You may NOT use this work, in whole or in part, for commercial purposes
-    of any kind — including but not limited to: selling, licensing,
-    sublicensing, incorporating into a commercial product or service,
-    using for paid consulting, or any activity intended to generate revenue —
-    WITHOUT EXPLICIT PRIOR WRITTEN PERMISSION from CARMELO LA GAMBA.
-
-  NO DERIVATIVES (ND)
-    You may NOT remix, transform, adapt, modify, or build upon this work,
-    and you may NOT distribute modified or derivative versions of this work,
-    WITHOUT EXPLICIT PRIOR WRITTEN PERMISSION from CARMELO LA GAMBA.
-
------------------------------------------------------------------------------
-NO ADDITIONAL RESTRICTIONS:
------------------------------------------------------------------------------
-  You may not apply legal terms or technological measures that legally
-  restrict others from doing anything the license permits.
-
------------------------------------------------------------------------------
-DISCLAIMER:
------------------------------------------------------------------------------
-  This software is provided "as is", without warranty of any kind. In no
-  event shall CARMELO LA GAMBA be liable for any claim, damages or other
-  liability arising from the use of this software.
-
------------------------------------------------------------------------------
-PERMISSIONS & CONTACT:
------------------------------------------------------------------------------
-  For commercial use, modification requests, licensing inquiries, or any
-  other permissions not expressly granted by this license, you must obtain
-  explicit written consent from:
-
-    CARMELO LA GAMBA
-    https://github.com/jinbocho
-
------------------------------------------------------------------------------
-FULL LICENSE TEXT:
------------------------------------------------------------------------------
-  https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode
-  https://creativecommons.org/licenses/by-nc-nd/4.0/
+For commercial licensing, managed installation, or production deployment
+services, contact: jinbochoapp@gmail.com
