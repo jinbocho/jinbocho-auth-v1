@@ -21,6 +21,7 @@ class SQLAlchemyPasswordResetTokenRepository(PasswordResetTokenRepository):
             token_hash=model.token_hash,
             expires_at=model.expires_at,
             used_at=model.used_at,
+            purpose=model.purpose,
             created_at=model.created_at,
         )
 
@@ -31,6 +32,7 @@ class SQLAlchemyPasswordResetTokenRepository(PasswordResetTokenRepository):
             token_hash=token.token_hash,
             expires_at=token.expires_at,
             used_at=token.used_at,
+            purpose=token.purpose,
             created_at=token.created_at,
         )
         self._session.add(model)

@@ -20,9 +20,9 @@ class UserResponse(BaseModel):
 
 
 class UserCreate(BaseModel):
-    """Request body to create a new user."""
+    """Request body to invite a new user. No password is set here — the
+    invitee receives an email with a link to choose their own."""
     email: EmailStr = Field(description="User email")
-    password: str = Field(min_length=8, description="User password (min 8 chars)")
     full_name: str = Field(min_length=1, max_length=255, description="User full name")
     role: str = Field(pattern="^(admin|editor|viewer)$", description="User role: admin, editor, or viewer")
 
@@ -30,7 +30,6 @@ class UserCreate(BaseModel):
         json_schema_extra={
             "example": {
                 "email": "jane@example.com",
-                "password": "SecurePass123!",
                 "full_name": "Jane Smith",
                 "role": "editor"
             }

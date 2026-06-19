@@ -14,5 +14,8 @@ class PasswordResetToken:
     token_hash: str
     expires_at: datetime
     used_at: Optional[datetime] = None
+    # "reset": user requested a forgotten-password link.
+    # "invite": admin created the account; this is its first password setup.
+    purpose: str = "reset"
     id: UUID = field(default_factory=uuid4)
     created_at: datetime = field(default_factory=_utcnow)

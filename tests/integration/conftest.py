@@ -1,7 +1,8 @@
 import pytest
 import asyncio
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
+from app.config import settings
 from app.main import app
 
 
@@ -13,10 +14,18 @@ def event_loop():
     loop.close()
 
 
+@pytest.fixture(autouse=True)
+def no_real_email(monkeypatch):
+    """Invite/forgot-password endpoints send real email via the configured SMTP
+    settings (.env has real Gmail credentials for local dev). Force the
+    console fallback so integration tests never hit live SMTP."""
+    monkeypatch.setattr(settings, "smtp_host", None)
+
+
 @pytest.fixture
 async def async_client():
     """Create a FastAPI test client."""
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
 
 

@@ -2,8 +2,8 @@ import pytest
 from uuid import uuid4
 from datetime import datetime, timedelta, timezone
 
-from app.domain.entities import User, Family, RefreshToken
-from app.domain.repositories import UserRepository, FamilyRepository, RefreshTokenRepository
+from app.domain.entities import User, Family, RefreshToken, PasswordResetToken
+from app.domain.repositories import UserRepository, FamilyRepository, RefreshTokenRepository, PasswordResetTokenRepository
 
 
 class MockUserRepository(UserRepository):
@@ -66,9 +66,49 @@ class MockRefreshTokenRepository(RefreshTokenRepository):
         return len(expired)
 
 
+class MockPasswordResetTokenRepository(PasswordResetTokenRepository):
+    def __init__(self):
+        self.tokens = {}
+
+    async def save(self, token: PasswordResetToken) -> PasswordResetToken:
+        self.tokens[token.id] = token
+        return token
+
+    async def find_by_token_hash(self, token_hash: str) -> PasswordResetToken | None:
+        for token in self.tokens.values():
+            if token.token_hash == token_hash:
+                return token
+        return None
+
+    async def mark_used(self, token_id, used_at) -> None:
+        token = self.tokens.get(token_id)
+        if token:
+            token.used_at = used_at
+
+
+class FakeEmailSender:
+    """Captures sent links instead of touching SMTP/stdout, for assertions in tests."""
+
+    def __init__(self):
+        self.sent: list[dict] = []
+
+    def send_password_setup_link(self, to_email, link, purpose="reset", language=None) -> None:
+        self.sent.append({"to_email": to_email, "link": link, "purpose": purpose, "language": language})
+
+
 @pytest.fixture
 def mock_user_repo():
     return MockUserRepository()
+
+
+@pytest.fixture
+def mock_password_reset_token_repo():
+    return MockPasswordResetTokenRepository()
+
+
+@pytest.fixture
+def fake_email_sender():
+    return FakeEmailSender()
 
 
 @pytest.fixture

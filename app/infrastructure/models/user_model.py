@@ -28,4 +28,6 @@ class UserModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     family: Mapped["FamilyModel"] = relationship(back_populates="users")
-    refresh_tokens: Mapped[list["RefreshTokenModel"]] = relationship(back_populates="user")
+    # passive_deletes: trust the DB's ON DELETE CASCADE on refresh_tokens.user_id
+    # instead of having the ORM null it out first (which violates NOT NULL).
+    refresh_tokens: Mapped[list["RefreshTokenModel"]] = relationship(back_populates="user", passive_deletes=True)

@@ -1,10 +1,7 @@
-import hashlib
-import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 
+from app.application.services import issue_password_setup_link
 from app.config import settings
-from app.domain.entities import PasswordResetToken
 from app.domain.repositories import PasswordResetTokenRepository, UserRepository
 from app.infrastructure.email.email_sender import EmailSender
 
@@ -31,16 +28,10 @@ class RequestPasswordResetUseCase:
         if not user or not user.is_active:
             return
 
-        raw_token = secrets.token_urlsafe(32)
-        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-        now = datetime.now(timezone.utc)
-
-        entity = PasswordResetToken(
-            user_id=user.id,
-            token_hash=token_hash,
-            expires_at=now + timedelta(minutes=settings.password_reset_expire_minutes),
+        await issue_password_setup_link(
+            user,
+            purpose="reset",
+            expire_minutes=settings.password_reset_expire_minutes,
+            reset_token_repo=self._reset_token_repo,
+            email_sender=self._email_sender,
         )
-        await self._reset_token_repo.save(entity)
-
-        reset_link = f"{settings.frontend_base_url}/reset-password?token={raw_token}"
-        self._email_sender.send_password_reset(user.email, reset_link, language=user.language)

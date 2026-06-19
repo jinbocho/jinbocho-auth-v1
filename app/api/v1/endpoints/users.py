@@ -17,7 +17,9 @@ from app.application.use_cases.users import (
     DeleteUserUseCase,
     DeleteUserInput,
 )
-from app.infrastructure.repositories import SQLAlchemyUserRepository
+from app.config import settings
+from app.infrastructure.email import EmailSender
+from app.infrastructure.repositories import SQLAlchemyPasswordResetTokenRepository, SQLAlchemyUserRepository
 
 router = APIRouter()
 
@@ -47,8 +49,9 @@ async def get_me(
     "/",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create new user",
-    description="Create new user in family. Requires admin role."
+    summary="Invite new user",
+    description="Create a new user in the family and email them a link to set their own "
+    "password. Requires admin role."
 )
 async def create_user(
     request: UserCreate,
@@ -56,13 +59,19 @@ async def create_user(
     db: AsyncSession = Depends(get_db),
 ):
     user_repo = SQLAlchemyUserRepository(db)
-    use_case = CreateUserUseCase(user_repo)
+    email_sender = EmailSender(
+        host=settings.smtp_host,
+        port=settings.smtp_port,
+        user=settings.smtp_user,
+        password=settings.smtp_password,
+        from_address=settings.email_from,
+    )
+    use_case = CreateUserUseCase(user_repo, SQLAlchemyPasswordResetTokenRepository(db), email_sender)
     try:
         result = await use_case.execute(
             CreateUserInput(
                 family_id=UUID(payload["family_id"]),
                 email=request.email,
-                password=request.password,
                 full_name=request.full_name,
                 role=request.role,
             )

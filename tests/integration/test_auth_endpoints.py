@@ -106,7 +106,7 @@ async def test_get_me_success(async_client, test_family_and_user):
 
 @pytest.mark.asyncio
 async def test_create_user_success(async_client, test_family_and_user):
-    """Test creating a new user in family."""
+    """Test inviting a new user in family — no password is chosen by the admin."""
     # Login as admin
     login_response = await async_client.post(
         "/v1/auth/login",
@@ -114,12 +114,11 @@ async def test_create_user_success(async_client, test_family_and_user):
     )
     access_token = login_response.json()["access_token"]
 
-    # Create new user
+    # Invite new user
     response = await async_client.post(
         "/v1/users",
         json={
             "email": "newuser@test.com",
-            "password": "NewPassword123!",
             "full_name": "New User",
             "role": "editor",
         },
@@ -128,6 +127,82 @@ async def test_create_user_success(async_client, test_family_and_user):
     assert response.status_code == 201
     data = response.json()
     assert data["email"] == "newuser@test.com"
+
+
+@pytest.mark.asyncio
+async def test_invited_user_sets_password_and_logs_in(async_client, test_family_and_user, capsys):
+    """End to end: invite a user, recover the setup link from the console-email
+    fallback, set a password through the generic reset-password endpoint, then
+    log in with it."""
+    login_response = await async_client.post(
+        "/v1/auth/login",
+        json={"email": test_family_and_user["email"], "password": test_family_and_user["password"]},
+    )
+    access_token = login_response.json()["access_token"]
+
+    invite_response = await async_client.post(
+        "/v1/users",
+        json={"email": "invitee@test.com", "full_name": "Invitee", "role": "viewer"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert invite_response.status_code == 201
+
+    console_output = capsys.readouterr().out
+    assert "[EMAIL CONSOLE]" in console_output
+    link_line = next(line for line in console_output.splitlines() if line.startswith("Link:"))
+    raw_token = link_line.split("token=")[1].split("&")[0]
+
+    reset_response = await async_client.post(
+        "/v1/auth/reset-password",
+        json={"token": raw_token, "new_password": "MyOwnPassword123!"},
+    )
+    assert reset_response.status_code == 204
+
+    login_response = await async_client.post(
+        "/v1/auth/login",
+        json={"email": "invitee@test.com", "password": "MyOwnPassword123!"},
+    )
+    assert login_response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_delete_user_success(async_client, test_family_and_user):
+    """Regression: deleting a user used to fail with a NotNullViolationError
+    on refresh_tokens.user_id (the ORM tried to null the FK instead of
+    trusting the DB's ON DELETE CASCADE). Reproduce it faithfully by giving
+    the user an actual refresh token row before deleting them."""
+    import uuid
+    from datetime import datetime, timezone
+    from app.infrastructure.database.session import AsyncSessionLocal
+    from app.infrastructure.models import RefreshTokenModel
+
+    login_response = await async_client.post(
+        "/v1/auth/login",
+        json={"email": test_family_and_user["email"], "password": test_family_and_user["password"]},
+    )
+    access_token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    create_response = await async_client.post(
+        "/v1/users",
+        json={"email": "todelete@test.com", "full_name": "To Delete", "role": "viewer"},
+        headers=headers,
+    )
+    user_id = create_response.json()["id"]
+
+    async with AsyncSessionLocal() as session:
+        session.add(
+            RefreshTokenModel(
+                id=uuid.uuid4(),
+                user_id=uuid.UUID(user_id),
+                token_hash="regression-test-token-hash",
+                expires_at=datetime.now(timezone.utc),
+            )
+        )
+        await session.commit()
+
+    delete_response = await async_client.delete(f"/v1/users/{user_id}", headers=headers)
+    assert delete_response.status_code == 204
 
 
 @pytest.mark.asyncio

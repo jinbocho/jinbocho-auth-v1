@@ -14,8 +14,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 30
 
-    # Password reset
+    # Password reset / invite (first-time password setup)
     password_reset_expire_minutes: int = 15
+    invite_expire_minutes: int = 60 * 24 * 7  # 7 days
     frontend_base_url: str = "http://localhost:5173"
 
     # SMTP — leave smtp_host empty to use console fallback (development)

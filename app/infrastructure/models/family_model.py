@@ -19,4 +19,6 @@ class FamilyModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    users: Mapped[list["UserModel"]] = relationship(back_populates="family")
+    # passive_deletes: trust the DB's ON DELETE CASCADE on users.family_id
+    # instead of having the ORM null it out first (which violates NOT NULL).
+    users: Mapped[list["UserModel"]] = relationship(back_populates="family", passive_deletes=True)
