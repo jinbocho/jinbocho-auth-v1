@@ -25,3 +25,11 @@ class FamilyUpdate(BaseModel):
             }
         }
     )
+
+
+class DeleteFamilyRequest(BaseModel):
+    """Confirmation payload for the irreversible full-account deletion —
+    required by both the preflight check and the actual delete, so a stolen
+    JWT alone is never enough to wipe the account."""
+    password: str = Field(description="The requesting admin's current password")
+    confirm_family_name: str = Field(description="Must exactly match the family's current name")

@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,3 +41,9 @@ class SQLAlchemyFamilyRepository(FamilyRepository):
         result = await self._session.execute(select(FamilyModel).where(FamilyModel.id == id))
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None
+
+    async def delete(self, id: UUID) -> None:
+        model = await self._session.get(FamilyModel, id)
+        if model is not None:
+            await self._session.delete(model)
+            await self._session.flush()

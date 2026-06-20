@@ -41,6 +41,9 @@ class MockFamilyRepository(FamilyRepository):
     async def find_by_id(self, id) -> Family | None:
         return self.families.get(id)
 
+    async def delete(self, id) -> None:
+        self.families.pop(id, None)
+
 
 class MockRefreshTokenRepository(RefreshTokenRepository):
     def __init__(self):
