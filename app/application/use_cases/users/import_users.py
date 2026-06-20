@@ -43,6 +43,14 @@ class ImportUsersUseCase:
     CreateUserUseCase already does (placeholder password + email link), then
     the imported role/goal/language/theme/active-state is applied on top —
     the base invite flow only takes email/full_name/role.
+
+    `users` may include entries recovered from catalog-service's removed-
+    member snapshots (a former member's real name/email/role, captured at
+    the moment they were deleted) — those go through this exact same path,
+    so they get a genuine invite under their real email rather than a
+    synthetic placeholder. Any owner_id/etc. reference with no snapshot and
+    no roster entry is simply left unresolved by the caller; this use case
+    never invents an account for it.
     """
 
     def __init__(

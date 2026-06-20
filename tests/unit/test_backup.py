@@ -163,3 +163,34 @@ async def test_import_users_mixed_batch_builds_correct_id_map(
 	assert result.user_id_map[old_existing_id] == existing.id
 	assert result.user_id_map[old_new_id] not in (existing.id, old_new_id)
 	assert len(fake_email_sender.sent) == 1  # only the genuinely new one
+
+
+@pytest.mark.asyncio
+async def test_import_users_invites_a_removed_member_recovered_via_snapshot(
+	mock_user_repo, mock_password_reset_token_repo, fake_email_sender
+):
+	"""A 'user' entry recovered from catalog-service's removed-member snapshot
+	(real email/full_name/role captured when they were originally deleted)
+	must go through the exact same match-or-invite path as a normal roster
+	entry — no special-casing, no synthetic placeholder."""
+	family_id = uuid4()
+	create_user = CreateUserUseCase(mock_user_repo, mock_password_reset_token_repo, fake_email_sender)
+	update_user = UpdateUserUseCase(mock_user_repo)
+	use_case = ImportUsersUseCase(mock_user_repo, create_user, update_user)
+
+	recovered_id = uuid4()
+	result = await use_case.execute(
+		ImportUsersInput(
+			family_id=family_id,
+			users=[
+				ImportUserItem(id=recovered_id, email="giuseppe@example.com", full_name="Giuseppe Bianchi", role="viewer")
+			],
+		)
+	)
+
+	assert result.created == 1
+	new_id = result.user_id_map[recovered_id]
+	recreated = await mock_user_repo.find_by_id(new_id)
+	assert recreated.email == "giuseppe@example.com"
+	assert recreated.full_name == "Giuseppe Bianchi"
+	assert len(fake_email_sender.sent) == 1
