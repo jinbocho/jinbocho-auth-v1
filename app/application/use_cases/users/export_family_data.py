@@ -1,0 +1,67 @@
+from dataclasses import dataclass
+from uuid import UUID
+
+from app.domain.repositories import FamilyRepository, UserRepository
+
+
+@dataclass
+class ExportFamilyDataInput:
+    family_id: UUID
+
+
+@dataclass
+class UserExportData:
+    id: UUID
+    email: str
+    full_name: str
+    role: str
+    is_active: bool
+    annual_reading_goal: int | None = None
+    language: str | None = None
+    theme_name: str | None = None
+    theme_mode: str | None = None
+
+
+@dataclass
+class ExportFamilyDataOutput:
+    family_id: UUID
+    family_name: str
+    family_description: str | None
+    users: list[UserExportData]
+
+
+class ExportFamilyDataUseCase:
+    """Exports the family's identity and roster for a full backup. Deliberately
+    excludes password_hash: a restored user sets a fresh password through the
+    same invite-by-email flow used for inviting a new member (see ImportUsersUseCase)."""
+
+    def __init__(self, family_repo: FamilyRepository, user_repo: UserRepository):
+        self._family_repo = family_repo
+        self._user_repo = user_repo
+
+    async def execute(self, input: ExportFamilyDataInput) -> ExportFamilyDataOutput:
+        family = await self._family_repo.find_by_id(input.family_id)
+        if not family:
+            raise LookupError("Family not found")
+
+        users = await self._user_repo.find_by_family(input.family_id)
+
+        return ExportFamilyDataOutput(
+            family_id=family.id,
+            family_name=family.name,
+            family_description=family.description,
+            users=[
+                UserExportData(
+                    id=user.id,
+                    email=user.email,
+                    full_name=user.full_name,
+                    role=user.role,
+                    is_active=user.is_active,
+                    annual_reading_goal=user.annual_reading_goal,
+                    language=user.language,
+                    theme_name=user.theme_name,
+                    theme_mode=user.theme_mode,
+                )
+                for user in users
+            ],
+        )
