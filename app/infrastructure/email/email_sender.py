@@ -1,9 +1,33 @@
 import logging
 import smtplib
+import socket
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 logger = logging.getLogger(__name__)
+
+
+class _IPv4SMTP(smtplib.SMTP):
+    """SMTP client that connects over IPv4 only.
+
+    Many container hosts (Render, some Hetzner setups) have no outbound IPv6
+    route, but DNS for smtp providers (e.g. Gmail) returns AAAA records
+    first. The default socket.create_connection tries those first and fails
+    immediately with ENETUNREACH instead of falling back. Resolving to an
+    A record explicitly avoids that; the hostname (not the IP) is still what
+    gets passed to starttls() for certificate verification.
+    """
+
+    def _get_socket(
+        self, host: str, port: int, timeout: float
+    ) -> socket.socket:
+        addr_info = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+        family, socktype, proto, _, sockaddr = addr_info[0]
+        sock = socket.socket(family, socktype, proto)
+        if timeout is not None:
+            sock.settimeout(timeout)
+        sock.connect(sockaddr)
+        return sock
 
 # Two purposes share the same mechanics (token link, single-use, expires) but
 # need different copy: "reset" is a password the user already had; "invite"
@@ -191,7 +215,7 @@ class EmailSender:
         msg.attach(MIMEText(body_html, "html"))
 
         try:
-            with smtplib.SMTP(self._host, self._port, timeout=self._timeout_seconds) as smtp:
+            with _IPv4SMTP(self._host, self._port, timeout=self._timeout_seconds) as smtp:
                 smtp.ehlo()
                 if self._user and self._password:
                     smtp.starttls()
