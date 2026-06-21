@@ -144,12 +144,14 @@ class EmailSender:
         user: str | None,
         password: str | None,
         from_address: str,
+        timeout_seconds: int = 10,
     ):
         self._host = host
         self._port = port
         self._user = user
         self._password = password
         self._from = from_address
+        self._timeout_seconds = timeout_seconds
 
     def send_password_setup_link(
         self,
@@ -188,10 +190,20 @@ class EmailSender:
         msg.attach(MIMEText(body_text, "plain"))
         msg.attach(MIMEText(body_html, "html"))
 
-        with smtplib.SMTP(self._host, self._port) as smtp:
-            smtp.ehlo()
-            if self._user and self._password:
-                smtp.starttls()
-                smtp.ehlo()  # required again after STARTTLS upgrade
-                smtp.login(self._user, self._password)
-            smtp.sendmail(self._from, to_email, msg.as_string())
+        try:
+            with smtplib.SMTP(self._host, self._port, timeout=self._timeout_seconds) as smtp:
+                smtp.ehlo()
+                if self._user and self._password:
+                    smtp.starttls()
+                    smtp.ehlo()  # required again after STARTTLS upgrade
+                    smtp.login(self._user, self._password)
+                smtp.sendmail(self._from, to_email, msg.as_string())
+        except (TimeoutError, OSError, smtplib.SMTPException):
+            logger.exception(
+                "SMTP send failed (host=%s port=%s to=%s purpose=%s)",
+                self._host,
+                self._port,
+                to_email,
+                purpose,
+            )
+            raise

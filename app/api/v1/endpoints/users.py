@@ -81,6 +81,7 @@ async def create_user(
         user=settings.smtp_user,
         password=settings.smtp_password,
         from_address=settings.email_from,
+        timeout_seconds=settings.smtp_timeout_seconds,
     )
     use_case = CreateUserUseCase(user_repo, SQLAlchemyPasswordResetTokenRepository(db), email_sender)
     try:
@@ -241,6 +242,7 @@ async def import_users(
         user=settings.smtp_user,
         password=settings.smtp_password,
         from_address=settings.email_from,
+        timeout_seconds=settings.smtp_timeout_seconds,
     )
     create_user = CreateUserUseCase(user_repo, SQLAlchemyPasswordResetTokenRepository(db), email_sender)
     update_user = UpdateUserUseCase(user_repo)

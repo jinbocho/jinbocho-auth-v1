@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_user: str | None = None
     smtp_password: str | None = None
+    smtp_timeout_seconds: int = 10
     email_from: str = "noreply@jinbocho.local"
 
     model_config = SettingsConfigDict(

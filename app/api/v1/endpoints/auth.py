@@ -177,6 +177,7 @@ async def forgot_password(
         user=settings.smtp_user,
         password=settings.smtp_password,
         from_address=settings.email_from,
+        timeout_seconds=settings.smtp_timeout_seconds,
     )
     use_case = RequestPasswordResetUseCase(
         SQLAlchemyUserRepository(db),

@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -35,4 +36,6 @@ async def issue_password_setup_link(
     )
 
     link = f"{settings.frontend_base_url}/reset-password?token={raw_token}&mode={purpose}"
-    email_sender.send_password_setup_link(user.email, link, purpose=purpose, language=user.language)
+    await asyncio.to_thread(
+        email_sender.send_password_setup_link, user.email, link, purpose=purpose, language=user.language
+    )
