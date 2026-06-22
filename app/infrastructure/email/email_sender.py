@@ -95,6 +95,68 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
             ),
         },
     },
+    "welcome": {
+        "en": {
+            "subject": "Welcome to Jinbocho!",
+            "body_text": (
+                'Welcome to Jinbocho! Your family "{family_name}" has been created.\n\n'
+                "You can now log in and start cataloging your home library:\n\n"
+                "{link}\n\n"
+                "Happy reading!"
+            ),
+            "body_html": (
+                '<p>Welcome to Jinbocho! Your family "{family_name}" has been created.</p>'
+                "<p>You can now log in and start cataloging your home library:</p>"
+                '<p><a href="{link}">{link}</a></p>'
+                "<p>Happy reading!</p>"
+            ),
+        },
+        "it": {
+            "subject": "Benvenuto su Jinbocho!",
+            "body_text": (
+                'Benvenuto su Jinbocho! La tua famiglia "{family_name}" è stata creata.\n\n'
+                "Puoi accedere e iniziare a catalogare la tua libreria domestica:\n\n"
+                "{link}\n\n"
+                "Buona lettura!"
+            ),
+            "body_html": (
+                '<p>Benvenuto su Jinbocho! La tua famiglia "{family_name}" è stata creata.</p>'
+                "<p>Puoi accedere e iniziare a catalogare la tua libreria domestica:</p>"
+                '<p><a href="{link}">{link}</a></p>'
+                "<p>Buona lettura!</p>"
+            ),
+        },
+        "es": {
+            "subject": "¡Bienvenido a Jinbocho!",
+            "body_text": (
+                '¡Bienvenido a Jinbocho! Tu familia "{family_name}" ha sido creada.\n\n'
+                "Ya puedes iniciar sesión y empezar a catalogar tu biblioteca:\n\n"
+                "{link}\n\n"
+                "¡Feliz lectura!"
+            ),
+            "body_html": (
+                '<p>¡Bienvenido a Jinbocho! Tu familia "{family_name}" ha sido creada.</p>'
+                "<p>Ya puedes iniciar sesión y empezar a catalogar tu biblioteca:</p>"
+                '<p><a href="{link}">{link}</a></p>'
+                "<p>¡Feliz lectura!</p>"
+            ),
+        },
+        "fr": {
+            "subject": "Bienvenue sur Jinbocho !",
+            "body_text": (
+                'Bienvenue sur Jinbocho ! Votre famille « {family_name} » a été créée.\n\n'
+                "Vous pouvez maintenant vous connecter et commencer à cataloguer votre bibliothèque :\n\n"
+                "{link}\n\n"
+                "Bonne lecture !"
+            ),
+            "body_html": (
+                '<p>Bienvenue sur Jinbocho ! Votre famille « {family_name} » a été créée.</p>'
+                "<p>Vous pouvez maintenant vous connecter et commencer à cataloguer votre bibliothèque :</p>"
+                '<p><a href="{link}">{link}</a></p>'
+                "<p>Bonne lecture !</p>"
+            ),
+        },
+    },
     "invite": {
         "en": {
             "subject": "Welcome to Jinbocho — set your password",
@@ -193,18 +255,54 @@ class EmailSender:
         templates = _TEMPLATES.get(purpose, _TEMPLATES["reset"])
         lang = language if language in templates else "en"
         tmpl = templates[lang]
-        subject = tmpl["subject"]
-        body_text = tmpl["body_text"].format(link=link)
-        body_html = tmpl["body_html"].format(link=link)
+        self._send(
+            to_email,
+            subject=tmpl["subject"],
+            body_text=tmpl["body_text"].format(link=link),
+            body_html=tmpl["body_html"].format(link=link),
+            log_context=f"{purpose} link",
+            console_link=link,
+        )
 
+    def send_welcome_email(
+        self,
+        to_email: str,
+        family_name: str,
+        link: str,
+        language: str | None = None,
+    ) -> None:
+        """Notify the admin who just registered a new family — no token
+        involved, the admin already chose their password during registration."""
+        templates = _TEMPLATES["welcome"]
+        lang = language if language in templates else "en"
+        tmpl = templates[lang]
+        self._send(
+            to_email,
+            subject=tmpl["subject"],
+            body_text=tmpl["body_text"].format(family_name=family_name, link=link),
+            body_html=tmpl["body_html"].format(family_name=family_name, link=link),
+            log_context="welcome email",
+            console_link=link,
+        )
+
+    def _send(
+        self,
+        to_email: str,
+        *,
+        subject: str,
+        body_text: str,
+        body_html: str,
+        log_context: str,
+        console_link: str,
+    ) -> None:
         if not self._host:
             # SMTP not configured: print to stdout so the link is always visible
             # in the uvicorn console regardless of log-level settings.
             print(
-                f"\n[EMAIL CONSOLE]\nTo:      {to_email}\nSubject: {subject}\nLink:    {link}\n",
+                f"\n[EMAIL CONSOLE]\nTo:      {to_email}\nSubject: {subject}\nLink:    {console_link}\n",
                 flush=True,
             )
-            logger.warning("[EMAIL CONSOLE] %s link for %s: %s", purpose, to_email, link)
+            logger.warning("[EMAIL CONSOLE] %s for %s: %s", log_context, to_email, console_link)
             return
 
         msg = MIMEMultipart("alternative")
@@ -224,10 +322,10 @@ class EmailSender:
                 smtp.sendmail(self._from, to_email, msg.as_string())
         except (TimeoutError, OSError, smtplib.SMTPException):
             logger.exception(
-                "SMTP send failed (host=%s port=%s to=%s purpose=%s)",
+                "SMTP send failed (host=%s port=%s to=%s context=%s)",
                 self._host,
                 self._port,
                 to_email,
-                purpose,
+                log_context,
             )
             raise

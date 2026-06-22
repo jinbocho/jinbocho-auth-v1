@@ -2,11 +2,12 @@ import secrets
 from dataclasses import dataclass
 from uuid import UUID
 
-from app.application.services import issue_password_setup_link
-from app.application.use_cases.auth.login import pwd_context
+from app.application.services import TokenService, issue_password_setup_link
 from app.config import settings
 from app.domain.entities import User
+from app.domain.exceptions import EmailAlreadyRegisteredError
 from app.domain.repositories import PasswordResetTokenRepository, UserRepository
+from app.domain.services import PasswordHasher
 from app.infrastructure.email.email_sender import EmailSender
 
 
@@ -34,15 +35,19 @@ class CreateUserUseCase:
         user_repo: UserRepository,
         reset_token_repo: PasswordResetTokenRepository,
         email_sender: EmailSender,
+        token_service: TokenService,
+        password_hasher: PasswordHasher,
     ):
         self._user_repo = user_repo
         self._reset_token_repo = reset_token_repo
         self._email_sender = email_sender
+        self._token_service = token_service
+        self._password_hasher = password_hasher
 
     async def execute(self, input: CreateUserInput) -> CreateUserOutput:
         existing = await self._user_repo.find_by_email(input.email)
         if existing:
-            raise ValueError("Email already registered")
+            raise EmailAlreadyRegisteredError("Email already registered")
 
         # No password is chosen for the invitee: a random, never-disclosed
         # hash is stored as a placeholder (unusable until they set their own
@@ -50,7 +55,7 @@ class CreateUserUseCase:
         user = User(
             family_id=input.family_id,
             email=input.email,
-            password_hash=pwd_context.hash(secrets.token_urlsafe(32)),
+            password_hash=self._password_hasher.hash(secrets.token_urlsafe(32)),
             full_name=input.full_name,
             role=input.role,
         )
@@ -62,6 +67,8 @@ class CreateUserUseCase:
             expire_minutes=settings.invite_expire_minutes,
             reset_token_repo=self._reset_token_repo,
             email_sender=self._email_sender,
+            token_service=self._token_service,
+            frontend_base_url=settings.frontend_base_url,
         )
 
         return CreateUserOutput(

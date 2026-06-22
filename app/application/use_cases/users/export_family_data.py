@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
+from app.domain.exceptions import EntityNotFoundError
 from app.domain.repositories import FamilyRepository, UserRepository
 
 
@@ -42,7 +43,7 @@ class ExportFamilyDataUseCase:
     async def execute(self, input: ExportFamilyDataInput) -> ExportFamilyDataOutput:
         family = await self._family_repo.find_by_id(input.family_id)
         if not family:
-            raise LookupError("Family not found")
+            raise EntityNotFoundError("Family not found")
 
         users = await self._user_repo.find_by_family(input.family_id)
 

@@ -1,9 +1,15 @@
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, status
 
-from app.api.dependencies import get_current_user_payload, get_db, require_role
+from app.api.dependencies import (
+    get_current_user_payload,
+    get_family_repository,
+    get_password_hasher,
+    get_user_repository,
+    require_role,
+)
 from app.api.v1.schemas.family_schemas import DeleteFamilyRequest, FamilyResponse, FamilyUpdate
 from app.application.use_cases.families import (
     ConfirmFamilyDeletionUseCase,
@@ -15,7 +21,8 @@ from app.application.use_cases.families import (
     UpdateFamilyInput,
     VerifyFamilyDeletionInput,
 )
-from app.infrastructure.repositories import SQLAlchemyFamilyRepository, SQLAlchemyUserRepository
+from app.domain.repositories import FamilyRepository, UserRepository
+from app.domain.services import PasswordHasher
 
 router = APIRouter()
 
@@ -28,20 +35,14 @@ router = APIRouter()
 )
 async def get_family(
     family_id: UUID,
-    payload: dict = Depends(get_current_user_payload),
-    db: AsyncSession = Depends(get_db),
-):
-    family_repo = SQLAlchemyFamilyRepository(db)
+    payload: dict[str, Any] = Depends(get_current_user_payload),
+    family_repo: FamilyRepository = Depends(get_family_repository),
+) -> FamilyResponse:
     use_case = GetFamilyUseCase(family_repo)
-    try:
-        result = await use_case.execute(
-            GetFamilyInput(family_id=family_id, requester_family_id=UUID(payload["family_id"]))
-        )
-        return FamilyResponse(**result.__dict__)
-    except PermissionError:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot access another family")
-    except LookupError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Family not found")
+    result = await use_case.execute(
+        GetFamilyInput(family_id=family_id, requester_family_id=UUID(payload["family_id"]))
+    )
+    return FamilyResponse(**result.__dict__)
 
 
 @router.patch(
@@ -53,28 +54,19 @@ async def get_family(
 async def update_family(
     family_id: UUID,
     request: FamilyUpdate,
-    payload: dict = Depends(require_role("admin")),
-    db: AsyncSession = Depends(get_db),
-):
-    family_repo = SQLAlchemyFamilyRepository(db)
+    payload: dict[str, Any] = Depends(require_role("admin")),
+    family_repo: FamilyRepository = Depends(get_family_repository),
+) -> FamilyResponse:
     use_case = UpdateFamilyUseCase(family_repo)
-    try:
-        result = await use_case.execute(
-            UpdateFamilyInput(
-                family_id=family_id,
-                requester_family_id=UUID(payload["family_id"]),
-                name=request.name,
-                description=request.description,
-            )
+    result = await use_case.execute(
+        UpdateFamilyInput(
+            family_id=family_id,
+            requester_family_id=UUID(payload["family_id"]),
+            name=request.name,
+            description=request.description,
         )
-        await db.commit()
-        return FamilyResponse(**result.__dict__)
-    except PermissionError:
-        await db.rollback()
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot update another family")
-    except LookupError:
-        await db.rollback()
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Family not found")
+    )
+    return FamilyResponse(**result.__dict__)
 
 
 @router.post(
@@ -89,29 +81,21 @@ async def update_family(
 async def confirm_family_deletion(
     family_id: UUID,
     request: DeleteFamilyRequest,
-    payload: dict = Depends(require_role("admin")),
-    db: AsyncSession = Depends(get_db),
-):
-    if family_id != UUID(payload["family_id"]):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot delete another family")
-    family_repo = SQLAlchemyFamilyRepository(db)
-    user_repo = SQLAlchemyUserRepository(db)
-    use_case = ConfirmFamilyDeletionUseCase(family_repo, user_repo)
-    try:
-        await use_case.execute(
-            VerifyFamilyDeletionInput(
-                family_id=family_id,
-                requester_id=UUID(payload["sub"]),
-                password=request.password,
-                confirm_family_name=request.confirm_family_name,
-            )
+    payload: dict[str, Any] = Depends(require_role("admin")),
+    family_repo: FamilyRepository = Depends(get_family_repository),
+    user_repo: UserRepository = Depends(get_user_repository),
+    password_hasher: PasswordHasher = Depends(get_password_hasher),
+) -> None:
+    use_case = ConfirmFamilyDeletionUseCase(family_repo, user_repo, password_hasher)
+    await use_case.execute(
+        VerifyFamilyDeletionInput(
+            family_id=family_id,
+            requester_id=UUID(payload["sub"]),
+            requester_family_id=UUID(payload["family_id"]),
+            password=request.password,
+            confirm_family_name=request.confirm_family_name,
         )
-    except LookupError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Family not found")
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Family name does not match")
-    except PermissionError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect password")
+    )
 
 
 @router.delete(
@@ -128,30 +112,18 @@ async def confirm_family_deletion(
 async def delete_family(
     family_id: UUID,
     request: DeleteFamilyRequest,
-    payload: dict = Depends(require_role("admin")),
-    db: AsyncSession = Depends(get_db),
-):
-    if family_id != UUID(payload["family_id"]):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot delete another family")
-    family_repo = SQLAlchemyFamilyRepository(db)
-    user_repo = SQLAlchemyUserRepository(db)
-    use_case = DeleteFamilyUseCase(family_repo, user_repo)
-    try:
-        await use_case.execute(
-            DeleteFamilyInput(
-                family_id=family_id,
-                requester_id=UUID(payload["sub"]),
-                password=request.password,
-                confirm_family_name=request.confirm_family_name,
-            )
+    payload: dict[str, Any] = Depends(require_role("admin")),
+    family_repo: FamilyRepository = Depends(get_family_repository),
+    user_repo: UserRepository = Depends(get_user_repository),
+    password_hasher: PasswordHasher = Depends(get_password_hasher),
+) -> None:
+    use_case = DeleteFamilyUseCase(family_repo, user_repo, password_hasher)
+    await use_case.execute(
+        DeleteFamilyInput(
+            family_id=family_id,
+            requester_id=UUID(payload["sub"]),
+            requester_family_id=UUID(payload["family_id"]),
+            password=request.password,
+            confirm_family_name=request.confirm_family_name,
         )
-        await db.commit()
-    except LookupError:
-        await db.rollback()
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Family not found")
-    except ValueError:
-        await db.rollback()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Family name does not match")
-    except PermissionError:
-        await db.rollback()
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect password")
+    )

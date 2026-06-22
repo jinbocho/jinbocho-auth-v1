@@ -1,4 +1,4 @@
-from .login import LoginUseCase, LoginInput, LoginOutput, pwd_context
+from .login import LoginUseCase, LoginInput, LoginOutput
 from .refresh_token import RefreshTokenUseCase, RefreshTokenInput, RefreshTokenOutput
 from .logout import LogoutUseCase, LogoutInput
 from .register_family import RegisterFamilyUseCase, RegisterFamilyInput, RegisterFamilyOutput
@@ -21,5 +21,4 @@ __all__ = [
     "RequestPasswordResetInput",
     "ResetPasswordUseCase",
     "ResetPasswordInput",
-    "pwd_context",
 ]

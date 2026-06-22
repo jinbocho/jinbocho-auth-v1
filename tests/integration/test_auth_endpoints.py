@@ -20,6 +20,28 @@ async def test_register_family_success(async_client):
 
 
 @pytest.mark.asyncio
+async def test_register_family_sends_welcome_email(async_client, capsys):
+    """The admin who creates a family must receive a welcome email with a
+    link to log in (console fallback in tests, since SMTP isn't configured)."""
+    response = await async_client.post(
+        "/v1/auth/register",
+        json={
+            "family_name": "Welcome Family",
+            "admin_email": "welcome-admin@family.com",
+            "admin_password": "SecurePassword123!",
+            "admin_full_name": "Admin Name",
+        },
+    )
+    assert response.status_code == 201
+
+    console_output = capsys.readouterr().out
+    assert "[EMAIL CONSOLE]" in console_output
+    assert "welcome-admin@family.com" in console_output
+    link_line = next(line for line in console_output.splitlines() if line.startswith("Link:"))
+    assert link_line.strip().endswith("/login")
+
+
+@pytest.mark.asyncio
 async def test_login_success(async_client, test_family_and_user):
     """Test successful login returns access and refresh tokens."""
     response = await async_client.post(
@@ -203,6 +225,33 @@ async def test_delete_user_success(async_client, test_family_and_user):
 
     delete_response = await async_client.delete(f"/v1/users/{user_id}", headers=headers)
     assert delete_response.status_code == 204
+
+
+@pytest.mark.asyncio
+async def test_update_me_persists_theme_preferences(async_client, test_family_and_user):
+    """Regression: SQLAlchemyUserRepository._to_entity used to drop
+    theme_name/theme_mode on every read, so a PATCH would write them to the
+    DB but the response (and any later GET) would still show null."""
+    login_response = await async_client.post(
+        "/v1/auth/login",
+        json={"email": test_family_and_user["email"], "password": test_family_and_user["password"]},
+    )
+    access_token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    patch_response = await async_client.patch(
+        "/v1/users/me",
+        json={"theme_name": "akabeni", "theme_mode": "dark"},
+        headers=headers,
+    )
+    assert patch_response.status_code == 200
+    assert patch_response.json()["theme_name"] == "akabeni"
+    assert patch_response.json()["theme_mode"] == "dark"
+
+    get_response = await async_client.get("/v1/users/me", headers=headers)
+    assert get_response.status_code == 200
+    assert get_response.json()["theme_name"] == "akabeni"
+    assert get_response.json()["theme_mode"] == "dark"
 
 
 @pytest.mark.asyncio

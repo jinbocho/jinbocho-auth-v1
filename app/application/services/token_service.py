@@ -6,6 +6,7 @@ import jwt
 
 from app.config import Settings
 from app.domain.entities import RefreshToken
+from app.domain.exceptions import InvalidCredentialsError
 
 
 class TokenService:
@@ -40,9 +41,9 @@ class TokenService:
     def validate_token_not_revoked(self, token: RefreshToken, now: datetime) -> None:
         """Validate a refresh token is not expired or revoked."""
         if token.expires_at < now:
-            raise LookupError("Token expired")
+            raise InvalidCredentialsError("Token expired")
         if token.revoked_at is not None:
-            raise LookupError("Token revoked")
+            raise InvalidCredentialsError("Token revoked")
 
     @staticmethod
     def utcnow() -> datetime:

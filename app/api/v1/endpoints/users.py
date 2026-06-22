@@ -1,9 +1,18 @@
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, status
 
-from app.api.dependencies import get_current_user_payload, get_db, require_role
+from app.api.dependencies import (
+    get_current_user_payload,
+    get_email_sender,
+    get_family_repository,
+    get_password_hasher,
+    get_password_reset_token_repository,
+    get_token_service,
+    get_user_repository,
+    require_role,
+)
 from app.api.v1.schemas.export_schemas import (
     FamilyDataExportResponse,
     FamilyExportItem,
@@ -12,6 +21,10 @@ from app.api.v1.schemas.export_schemas import (
     UserExportItem,
 )
 from app.api.v1.schemas.user_schemas import MeUpdate, UserResponse, UserCreate, UserUpdate
+from app.application.services import TokenService
+from app.domain.entities import User
+from app.domain.repositories import FamilyRepository, PasswordResetTokenRepository, UserRepository
+from app.domain.services import PasswordHasher
 from app.application.use_cases.users import (
     CreateUserUseCase,
     CreateUserInput,
@@ -29,13 +42,7 @@ from app.application.use_cases.users import (
     ImportUsersInput,
     ImportUserItem,
 )
-from app.config import settings
 from app.infrastructure.email import EmailSender
-from app.infrastructure.repositories import (
-    SQLAlchemyFamilyRepository,
-    SQLAlchemyPasswordResetTokenRepository,
-    SQLAlchemyUserRepository,
-)
 
 router = APIRouter()
 
@@ -47,18 +54,14 @@ router = APIRouter()
     description="Get current authenticated user's information."
 )
 async def get_me(
-    payload: dict = Depends(get_current_user_payload),
-    db: AsyncSession = Depends(get_db),
-):
-    user_repo = SQLAlchemyUserRepository(db)
+    payload: dict[str, Any] = Depends(get_current_user_payload),
+    user_repo: UserRepository = Depends(get_user_repository),
+) -> UserResponse:
     use_case = GetUserUseCase(user_repo)
-    try:
-        result = await use_case.execute(
-            GetUserInput(user_id=UUID(payload["sub"]), requester_family_id=UUID(payload["family_id"]))
-        )
-        return UserResponse(**result.__dict__)
-    except LookupError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    result = await use_case.execute(
+        GetUserInput(user_id=UUID(payload["sub"]), requester_family_id=UUID(payload["family_id"]))
+    )
+    return UserResponse(**result.__dict__)
 
 
 @router.post(
@@ -71,33 +74,23 @@ async def get_me(
 )
 async def create_user(
     request: UserCreate,
-    payload: dict = Depends(require_role("admin")),
-    db: AsyncSession = Depends(get_db),
-):
-    user_repo = SQLAlchemyUserRepository(db)
-    email_sender = EmailSender(
-        host=settings.smtp_host,
-        port=settings.smtp_port,
-        user=settings.smtp_user,
-        password=settings.smtp_password,
-        from_address=settings.email_from,
-        timeout_seconds=settings.smtp_timeout_seconds,
-    )
-    use_case = CreateUserUseCase(user_repo, SQLAlchemyPasswordResetTokenRepository(db), email_sender)
-    try:
-        result = await use_case.execute(
-            CreateUserInput(
-                family_id=UUID(payload["family_id"]),
-                email=request.email,
-                full_name=request.full_name,
-                role=request.role,
-            )
+    payload: dict[str, Any] = Depends(require_role("admin")),
+    user_repo: UserRepository = Depends(get_user_repository),
+    reset_token_repo: PasswordResetTokenRepository = Depends(get_password_reset_token_repository),
+    email_sender: EmailSender = Depends(get_email_sender),
+    token_service: TokenService = Depends(get_token_service),
+    password_hasher: PasswordHasher = Depends(get_password_hasher),
+) -> UserResponse:
+    use_case = CreateUserUseCase(user_repo, reset_token_repo, email_sender, token_service, password_hasher)
+    result = await use_case.execute(
+        CreateUserInput(
+            family_id=UUID(payload["family_id"]),
+            email=request.email,
+            full_name=request.full_name,
+            role=request.role,
         )
-        await db.commit()
-        return UserResponse(**result.__dict__)
-    except ValueError:
-        await db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+    )
+    return UserResponse(**result.__dict__)
 
 
 @router.get(
@@ -108,10 +101,9 @@ async def create_user(
     "(the roster is needed to show who is reading which book)."
 )
 async def list_users(
-    payload: dict = Depends(get_current_user_payload),
-    db: AsyncSession = Depends(get_db),
-):
-    user_repo = SQLAlchemyUserRepository(db)
+    payload: dict[str, Any] = Depends(get_current_user_payload),
+    user_repo: UserRepository = Depends(get_user_repository),
+) -> list[User]:
     use_case = ListUsersUseCase(user_repo)
     result = await use_case.execute(ListUsersInput(family_id=UUID(payload["family_id"])))
     return result.users
@@ -125,29 +117,23 @@ async def list_users(
 )
 async def update_me(
     request: MeUpdate,
-    payload: dict = Depends(get_current_user_payload),
-    db: AsyncSession = Depends(get_db),
-):
-    user_repo = SQLAlchemyUserRepository(db)
+    payload: dict[str, Any] = Depends(get_current_user_payload),
+    user_repo: UserRepository = Depends(get_user_repository),
+) -> UserResponse:
     use_case = UpdateUserUseCase(user_repo)
-    try:
-        result = await use_case.execute(
-            UpdateUserInput(
-                user_id=UUID(payload["sub"]),
-                requester_family_id=UUID(payload["family_id"]),
-                full_name=request.full_name,
-                annual_reading_goal=request.annual_reading_goal,
-                set_annual_reading_goal="annual_reading_goal" in request.model_fields_set,
-                language=request.language,
-                theme_name=request.theme_name,
-                theme_mode=request.theme_mode,
-            )
+    result = await use_case.execute(
+        UpdateUserInput(
+            user_id=UUID(payload["sub"]),
+            requester_family_id=UUID(payload["family_id"]),
+            full_name=request.full_name,
+            annual_reading_goal=request.annual_reading_goal,
+            set_annual_reading_goal="annual_reading_goal" in request.model_fields_set,
+            language=request.language,
+            theme_name=request.theme_name,
+            theme_mode=request.theme_mode,
         )
-        await db.commit()
-        return UserResponse(**result.__dict__)
-    except LookupError:
-        await db.rollback()
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    )
+    return UserResponse(**result.__dict__)
 
 
 @router.patch(
@@ -159,31 +145,25 @@ async def update_me(
 async def update_user(
     user_id: UUID,
     request: UserUpdate,
-    payload: dict = Depends(require_role("admin")),
-    db: AsyncSession = Depends(get_db),
-):
-    user_repo = SQLAlchemyUserRepository(db)
+    payload: dict[str, Any] = Depends(require_role("admin")),
+    user_repo: UserRepository = Depends(get_user_repository),
+) -> UserResponse:
     use_case = UpdateUserUseCase(user_repo)
-    try:
-        result = await use_case.execute(
-            UpdateUserInput(
-                user_id=user_id,
-                requester_family_id=UUID(payload["family_id"]),
-                full_name=request.full_name,
-                role=request.role,
-                is_active=request.is_active,
-                annual_reading_goal=request.annual_reading_goal,
-                set_annual_reading_goal="annual_reading_goal" in request.model_fields_set,
-                language=request.language,
-                theme_name=request.theme_name,
-                theme_mode=request.theme_mode,
-            )
+    result = await use_case.execute(
+        UpdateUserInput(
+            user_id=user_id,
+            requester_family_id=UUID(payload["family_id"]),
+            full_name=request.full_name,
+            role=request.role,
+            is_active=request.is_active,
+            annual_reading_goal=request.annual_reading_goal,
+            set_annual_reading_goal="annual_reading_goal" in request.model_fields_set,
+            language=request.language,
+            theme_name=request.theme_name,
+            theme_mode=request.theme_mode,
         )
-        await db.commit()
-        return UserResponse(**result.__dict__)
-    except LookupError:
-        await db.rollback()
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    )
+    return UserResponse(**result.__dict__)
 
 
 @router.get(
@@ -195,11 +175,10 @@ async def update_user(
     "same invite-by-email flow used for inviting a new member. Requires admin role."
 )
 async def export_family_data(
-    payload: dict = Depends(require_role("admin")),
-    db: AsyncSession = Depends(get_db),
-):
-    family_repo = SQLAlchemyFamilyRepository(db)
-    user_repo = SQLAlchemyUserRepository(db)
+    payload: dict[str, Any] = Depends(require_role("admin")),
+    family_repo: FamilyRepository = Depends(get_family_repository),
+    user_repo: UserRepository = Depends(get_user_repository),
+) -> FamilyDataExportResponse:
     use_case = ExportFamilyDataUseCase(family_repo, user_repo)
     result = await use_case.execute(ExportFamilyDataInput(family_id=UUID(payload["family_id"])))
     return FamilyDataExportResponse(
@@ -232,19 +211,14 @@ async def export_family_data(
 )
 async def import_users(
     request: ImportUsersRequest,
-    payload: dict = Depends(require_role("admin")),
-    db: AsyncSession = Depends(get_db),
-):
-    user_repo = SQLAlchemyUserRepository(db)
-    email_sender = EmailSender(
-        host=settings.smtp_host,
-        port=settings.smtp_port,
-        user=settings.smtp_user,
-        password=settings.smtp_password,
-        from_address=settings.email_from,
-        timeout_seconds=settings.smtp_timeout_seconds,
-    )
-    create_user = CreateUserUseCase(user_repo, SQLAlchemyPasswordResetTokenRepository(db), email_sender)
+    payload: dict[str, Any] = Depends(require_role("admin")),
+    user_repo: UserRepository = Depends(get_user_repository),
+    reset_token_repo: PasswordResetTokenRepository = Depends(get_password_reset_token_repository),
+    email_sender: EmailSender = Depends(get_email_sender),
+    token_service: TokenService = Depends(get_token_service),
+    password_hasher: PasswordHasher = Depends(get_password_hasher),
+) -> ImportUsersResponse:
+    create_user = CreateUserUseCase(user_repo, reset_token_repo, email_sender, token_service, password_hasher)
     update_user = UpdateUserUseCase(user_repo)
     use_case = ImportUsersUseCase(user_repo, create_user, update_user)
 
@@ -267,7 +241,6 @@ async def import_users(
             ],
         )
     )
-    await db.commit()
     return ImportUsersResponse(
         user_id_map={str(old): str(new) for old, new in result.user_id_map.items()},
         created=result.created,
@@ -283,16 +256,10 @@ async def import_users(
 )
 async def delete_user(
     user_id: UUID,
-    payload: dict = Depends(require_role("admin")),
-    db: AsyncSession = Depends(get_db),
-):
-    user_repo = SQLAlchemyUserRepository(db)
+    payload: dict[str, Any] = Depends(require_role("admin")),
+    user_repo: UserRepository = Depends(get_user_repository),
+) -> None:
     use_case = DeleteUserUseCase(user_repo)
-    try:
-        await use_case.execute(
-            DeleteUserInput(user_id=user_id, requester_family_id=UUID(payload["family_id"]))
-        )
-        await db.commit()
-    except LookupError:
-        await db.rollback()
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    await use_case.execute(
+        DeleteUserInput(user_id=user_id, requester_family_id=UUID(payload["family_id"]))
+    )

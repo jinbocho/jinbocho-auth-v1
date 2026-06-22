@@ -1,10 +1,14 @@
-from uuid import UUID
+from fastapi import APIRouter, Depends, Request, Response, status
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.api.dependencies import get_db, get_token_service, get_refresh_token_repository
+from app.api.dependencies import (
+    get_email_sender,
+    get_family_repository,
+    get_password_hasher,
+    get_password_reset_token_repository,
+    get_refresh_token_repository,
+    get_token_service,
+    get_user_repository,
+)
 from app.api.v1.schemas.auth_schemas import (
     RegisterRequest,
     RegisterResponse,
@@ -30,13 +34,14 @@ from app.application.use_cases.auth import (
     ResetPasswordInput,
 )
 from app.application.services import TokenService
-from app.config import settings
-from app.infrastructure.email import EmailSender
-from app.infrastructure.repositories import (
-    SQLAlchemyFamilyRepository,
-    SQLAlchemyUserRepository,
-    SQLAlchemyPasswordResetTokenRepository,
+from app.domain.repositories import (
+    FamilyRepository,
+    PasswordResetTokenRepository,
+    RefreshTokenRepository,
+    UserRepository,
 )
+from app.domain.services import PasswordHasher
+from app.infrastructure.email import EmailSender
 from app.limiter import limiter
 
 router = APIRouter()
@@ -53,22 +58,23 @@ router = APIRouter()
     }
 )
 @limiter.limit("5/minute")
-async def register_family(request: Request, body: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    user_repo = SQLAlchemyUserRepository(db)
-    use_case = RegisterFamilyUseCase(SQLAlchemyFamilyRepository(db), user_repo)
-    try:
-        result = await use_case.execute(
-            RegisterFamilyInput(
-                family_name=body.family_name,
-                admin_email=body.admin_email,
-                admin_password=body.admin_password,
-                admin_full_name=body.admin_full_name,
-            )
+async def register_family(
+    request: Request,
+    body: RegisterRequest,
+    family_repo: FamilyRepository = Depends(get_family_repository),
+    user_repo: UserRepository = Depends(get_user_repository),
+    password_hasher: PasswordHasher = Depends(get_password_hasher),
+    email_sender: EmailSender = Depends(get_email_sender),
+) -> RegisterResponse:
+    use_case = RegisterFamilyUseCase(family_repo, user_repo, password_hasher, email_sender)
+    result = await use_case.execute(
+        RegisterFamilyInput(
+            family_name=body.family_name,
+            admin_email=body.admin_email,
+            admin_password=body.admin_password,
+            admin_full_name=body.admin_full_name,
         )
-        await db.commit()
-    except IntegrityError:
-        await db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+    )
     return RegisterResponse(family_id=result.family_id, user_id=result.user_id)
 
 
@@ -85,26 +91,14 @@ async def register_family(request: Request, body: RegisterRequest, db: AsyncSess
 async def login(
     request: Request,
     body: LoginRequest,
-    db: AsyncSession = Depends(get_db),
+    user_repo: UserRepository = Depends(get_user_repository),
     token_service: TokenService = Depends(get_token_service),
-    refresh_token_repo = Depends(get_refresh_token_repository),
-):
-    user_repo = SQLAlchemyUserRepository(db)
-    use_case = LoginUseCase(user_repo, refresh_token_repo, token_service)
-    try:
-        result = await use_case.execute(LoginInput(email=body.email, password=body.password))
-        await db.commit()
-        return TokenResponse(access_token=result.access_token, refresh_token=result.refresh_token)
-    except LookupError:
-        await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except PermissionError:
-        await db.rollback()
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive")
+    refresh_token_repo: RefreshTokenRepository = Depends(get_refresh_token_repository),
+    password_hasher: PasswordHasher = Depends(get_password_hasher),
+) -> TokenResponse:
+    use_case = LoginUseCase(user_repo, refresh_token_repo, token_service, password_hasher)
+    result = await use_case.execute(LoginInput(email=body.email, password=body.password))
+    return TokenResponse(access_token=result.access_token, refresh_token=result.refresh_token)
 
 
 @router.post(
@@ -120,26 +114,13 @@ async def login(
 async def refresh_token(
     request: Request,
     body: RefreshRequest,
-    db: AsyncSession = Depends(get_db),
+    user_repo: UserRepository = Depends(get_user_repository),
     token_service: TokenService = Depends(get_token_service),
-    refresh_token_repo = Depends(get_refresh_token_repository),
-):
-    user_repo = SQLAlchemyUserRepository(db)
+    refresh_token_repo: RefreshTokenRepository = Depends(get_refresh_token_repository),
+) -> TokenResponse:
     use_case = RefreshTokenUseCase(user_repo, refresh_token_repo, token_service)
-    try:
-        result = await use_case.execute(RefreshTokenInput(refresh_token=body.refresh_token))
-        await db.commit()
-        return TokenResponse(access_token=result.access_token, refresh_token=result.refresh_token)
-    except LookupError:
-        await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except PermissionError:
-        await db.rollback()
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive")
+    result = await use_case.execute(RefreshTokenInput(refresh_token=body.refresh_token))
+    return TokenResponse(access_token=result.access_token, refresh_token=result.refresh_token)
 
 
 @router.post(
@@ -150,12 +131,11 @@ async def refresh_token(
 )
 async def logout(
     body: LogoutRequest,
-    db: AsyncSession = Depends(get_db),
-    refresh_token_repo = Depends(get_refresh_token_repository),
+    token_service: TokenService = Depends(get_token_service),
+    refresh_token_repo: RefreshTokenRepository = Depends(get_refresh_token_repository),
 ) -> Response:
-    use_case = LogoutUseCase(refresh_token_repo)
+    use_case = LogoutUseCase(refresh_token_repo, token_service)
     await use_case.execute(LogoutInput(refresh_token=body.refresh_token))
-    await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -169,23 +149,13 @@ async def logout(
 async def forgot_password(
     request: Request,
     body: ForgotPasswordRequest,
-    db: AsyncSession = Depends(get_db),
+    user_repo: UserRepository = Depends(get_user_repository),
+    reset_token_repo: PasswordResetTokenRepository = Depends(get_password_reset_token_repository),
+    email_sender: EmailSender = Depends(get_email_sender),
+    token_service: TokenService = Depends(get_token_service),
 ) -> Response:
-    email_sender = EmailSender(
-        host=settings.smtp_host,
-        port=settings.smtp_port,
-        user=settings.smtp_user,
-        password=settings.smtp_password,
-        from_address=settings.email_from,
-        timeout_seconds=settings.smtp_timeout_seconds,
-    )
-    use_case = RequestPasswordResetUseCase(
-        SQLAlchemyUserRepository(db),
-        SQLAlchemyPasswordResetTokenRepository(db),
-        email_sender,
-    )
+    use_case = RequestPasswordResetUseCase(user_repo, reset_token_repo, email_sender, token_service)
     await use_case.execute(RequestPasswordResetInput(email=body.email))
-    await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -202,16 +172,11 @@ async def forgot_password(
 async def reset_password(
     request: Request,
     body: ResetPasswordRequest,
-    db: AsyncSession = Depends(get_db),
+    user_repo: UserRepository = Depends(get_user_repository),
+    reset_token_repo: PasswordResetTokenRepository = Depends(get_password_reset_token_repository),
+    token_service: TokenService = Depends(get_token_service),
+    password_hasher: PasswordHasher = Depends(get_password_hasher),
 ) -> Response:
-    use_case = ResetPasswordUseCase(
-        SQLAlchemyUserRepository(db),
-        SQLAlchemyPasswordResetTokenRepository(db),
-    )
-    try:
-        await use_case.execute(ResetPasswordInput(token=body.token, new_password=body.new_password))
-        await db.commit()
-    except ValueError as exc:
-        await db.rollback()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    use_case = ResetPasswordUseCase(user_repo, reset_token_repo, token_service, password_hasher)
+    await use_case.execute(ResetPasswordInput(token=body.token, new_password=body.new_password))
     return Response(status_code=status.HTTP_204_NO_CONTENT)

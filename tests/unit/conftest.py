@@ -1,9 +1,10 @@
 import pytest
 from uuid import uuid4
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from app.domain.entities import User, Family, RefreshToken, PasswordResetToken
 from app.domain.repositories import UserRepository, FamilyRepository, RefreshTokenRepository, PasswordResetTokenRepository
+from app.infrastructure.security import BcryptPasswordHasher
 
 
 class MockUserRepository(UserRepository):
@@ -97,6 +98,16 @@ class FakeEmailSender:
 
     def send_password_setup_link(self, to_email, link, purpose="reset", language=None) -> None:
         self.sent.append({"to_email": to_email, "link": link, "purpose": purpose, "language": language})
+
+    def send_welcome_email(self, to_email, family_name, link, language=None) -> None:
+        self.sent.append(
+            {"to_email": to_email, "family_name": family_name, "link": link, "purpose": "welcome", "language": language}
+        )
+
+
+@pytest.fixture
+def password_hasher():
+    return BcryptPasswordHasher()
 
 
 @pytest.fixture

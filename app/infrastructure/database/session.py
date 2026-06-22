@@ -14,5 +14,13 @@ class Base(DeclarativeBase):
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Unit-of-work per request: commit if the endpoint completes without
+    raising, roll back otherwise. Endpoints and use cases never call
+    session.commit()/rollback() themselves."""
     async with AsyncSessionLocal() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise

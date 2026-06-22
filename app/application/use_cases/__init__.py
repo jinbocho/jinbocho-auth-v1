@@ -10,7 +10,6 @@ from .auth import (
     RegisterFamilyUseCase,
     RegisterFamilyInput,
     RegisterFamilyOutput,
-    pwd_context,
 )
 from .users import (
     CreateUserUseCase,
@@ -58,7 +57,6 @@ __all__ = [
     "RegisterFamilyUseCase",
     "RegisterFamilyInput",
     "RegisterFamilyOutput",
-    "pwd_context",
     # User use cases
     "CreateUserUseCase",
     "CreateUserInput",

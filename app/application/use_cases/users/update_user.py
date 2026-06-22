@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
+from app.domain.exceptions import EntityNotFoundError
 from app.domain.repositories import UserRepository
 
 
@@ -42,7 +43,7 @@ class UpdateUserUseCase:
     async def execute(self, input: UpdateUserInput) -> UpdateUserOutput:
         user = await self._user_repo.find_by_id(input.user_id)
         if not user or user.family_id != input.requester_family_id:
-            raise LookupError("User not found")
+            raise EntityNotFoundError("User not found")
 
         if input.full_name is not None:
             user.full_name = input.full_name

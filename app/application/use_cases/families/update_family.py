@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from uuid import UUID
 
+from app.domain.exceptions import EntityNotFoundError, ForbiddenError
+from app.domain.repositories import FamilyRepository
+
 
 @dataclass
 class UpdateFamilyInput:
@@ -18,16 +21,16 @@ class UpdateFamilyOutput:
 
 
 class UpdateFamilyUseCase:
-    def __init__(self, family_repo):
+    def __init__(self, family_repo: FamilyRepository) -> None:
         self._family_repo = family_repo
 
     async def execute(self, input: UpdateFamilyInput) -> UpdateFamilyOutput:
         if input.family_id != input.requester_family_id:
-            raise PermissionError("Cannot update another family")
+            raise ForbiddenError("Cannot update another family")
 
         family = await self._family_repo.find_by_id(input.family_id)
         if not family:
-            raise LookupError("Family not found")
+            raise EntityNotFoundError("Family not found")
 
         if input.name is not None:
             family.name = input.name

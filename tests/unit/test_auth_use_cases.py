@@ -9,29 +9,27 @@ from app.application.use_cases.auth import (
     RefreshTokenInput,
     LogoutUseCase,
     LogoutInput,
-    pwd_context,
 )
 from app.config import settings
 from app.domain.entities import User, RefreshToken
-from tests.unit.conftest import MockUserRepository, MockRefreshTokenRepository
 
 
 @pytest.mark.asyncio
-async def test_login_successful(mock_user_repo, mock_refresh_token_repo):
+async def test_login_successful(mock_user_repo, mock_refresh_token_repo, password_hasher):
     """Test successful login creates tokens and persists refresh token."""
     password = "test_password_123"
     user = User(
         id=uuid4(),
         family_id=uuid4(),
         email="test@example.com",
-        password_hash=pwd_context.hash(password),
+        password_hash=password_hasher.hash(password),
         full_name="Test User",
         role="admin",
     )
     await mock_user_repo.save(user)
 
     token_service = TokenService(settings)
-    use_case = LoginUseCase(mock_user_repo, mock_refresh_token_repo, token_service)
+    use_case = LoginUseCase(mock_user_repo, mock_refresh_token_repo, token_service, password_hasher)
 
     result = await use_case.execute(LoginInput(email=user.email, password=password))
 
@@ -41,35 +39,35 @@ async def test_login_successful(mock_user_repo, mock_refresh_token_repo):
 
 
 @pytest.mark.asyncio
-async def test_login_invalid_credentials(mock_user_repo, mock_refresh_token_repo):
+async def test_login_invalid_credentials(mock_user_repo, mock_refresh_token_repo, password_hasher):
     """Test login with invalid credentials raises LookupError."""
     password = "test_password_123"
     user = User(
         id=uuid4(),
         family_id=uuid4(),
         email="test@example.com",
-        password_hash=pwd_context.hash(password),
+        password_hash=password_hasher.hash(password),
         full_name="Test User",
         role="admin",
     )
     await mock_user_repo.save(user)
 
     token_service = TokenService(settings)
-    use_case = LoginUseCase(mock_user_repo, mock_refresh_token_repo, token_service)
+    use_case = LoginUseCase(mock_user_repo, mock_refresh_token_repo, token_service, password_hasher)
 
     with pytest.raises(LookupError):
         await use_case.execute(LoginInput(email=user.email, password="wrong_password"))
 
 
 @pytest.mark.asyncio
-async def test_login_inactive_user(mock_user_repo, mock_refresh_token_repo):
+async def test_login_inactive_user(mock_user_repo, mock_refresh_token_repo, password_hasher):
     """Test login with inactive user raises PermissionError."""
     password = "test_password_123"
     user = User(
         id=uuid4(),
         family_id=uuid4(),
         email="test@example.com",
-        password_hash=pwd_context.hash(password),
+        password_hash=password_hasher.hash(password),
         full_name="Test User",
         role="admin",
         is_active=False,
@@ -77,21 +75,21 @@ async def test_login_inactive_user(mock_user_repo, mock_refresh_token_repo):
     await mock_user_repo.save(user)
 
     token_service = TokenService(settings)
-    use_case = LoginUseCase(mock_user_repo, mock_refresh_token_repo, token_service)
+    use_case = LoginUseCase(mock_user_repo, mock_refresh_token_repo, token_service, password_hasher)
 
     with pytest.raises(PermissionError):
         await use_case.execute(LoginInput(email=user.email, password=password))
 
 
 @pytest.mark.asyncio
-async def test_refresh_token_success(mock_user_repo, mock_refresh_token_repo):
+async def test_refresh_token_success(mock_user_repo, mock_refresh_token_repo, password_hasher):
     """Test successful token refresh rotates tokens."""
     password = "test_password_123"
     user = User(
         id=uuid4(),
         family_id=uuid4(),
         email="test@example.com",
-        password_hash=pwd_context.hash(password),
+        password_hash=password_hasher.hash(password),
         full_name="Test User",
         role="admin",
     )
@@ -100,7 +98,7 @@ async def test_refresh_token_success(mock_user_repo, mock_refresh_token_repo):
     token_service = TokenService(settings)
 
     # First login to get refresh token
-    login_use_case = LoginUseCase(mock_user_repo, mock_refresh_token_repo, token_service)
+    login_use_case = LoginUseCase(mock_user_repo, mock_refresh_token_repo, token_service, password_hasher)
     login_result = await login_use_case.execute(LoginInput(email=user.email, password=password))
 
     # Then refresh
@@ -139,7 +137,7 @@ async def test_logout_success(mock_refresh_token_repo):
     )
     await mock_refresh_token_repo.save(token)
 
-    use_case = LogoutUseCase(mock_refresh_token_repo)
+    use_case = LogoutUseCase(mock_refresh_token_repo, token_service)
     await use_case.execute(LogoutInput(refresh_token=refresh_token))
 
     stored_token = await mock_refresh_token_repo.find_by_hash(token_hash)

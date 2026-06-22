@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
+from app.domain.exceptions import EntityNotFoundError
 from app.domain.repositories import UserRepository
 
 
@@ -17,5 +18,5 @@ class DeleteUserUseCase:
     async def execute(self, input: DeleteUserInput) -> None:
         user = await self._user_repo.find_by_id(input.user_id)
         if not user or user.family_id != input.requester_family_id:
-            raise LookupError("User not found")
+            raise EntityNotFoundError("User not found")
         await self._user_repo.delete(input.user_id)

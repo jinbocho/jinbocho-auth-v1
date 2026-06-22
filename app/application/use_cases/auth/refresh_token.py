@@ -4,6 +4,7 @@ from datetime import timedelta
 from app.application.services import TokenService
 from app.config import settings
 from app.domain.entities import RefreshToken
+from app.domain.exceptions import InactiveUserError, InvalidCredentialsError
 from app.domain.repositories import RefreshTokenRepository, UserRepository
 
 
@@ -35,15 +36,15 @@ class RefreshTokenUseCase:
         stored_token = await self._refresh_token_repo.find_by_hash(token_hash)
 
         if not stored_token:
-            raise LookupError("Invalid refresh token")
+            raise InvalidCredentialsError("Invalid refresh token")
 
         self._token_service.validate_token_not_revoked(stored_token, now)
 
         user = await self._user_repo.find_by_id(stored_token.user_id)
         if not user:
-            raise LookupError("User not found")
+            raise InvalidCredentialsError("Invalid refresh token")
         if not user.is_active:
-            raise PermissionError("User is inactive")
+            raise InactiveUserError("User is inactive")
 
         await self._refresh_token_repo.revoke(token_hash)
 

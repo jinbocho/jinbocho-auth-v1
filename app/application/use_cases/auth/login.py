@@ -1,15 +1,12 @@
 from dataclasses import dataclass
 from datetime import timedelta
 
-from passlib.context import CryptContext
-
 from app.application.services import TokenService
 from app.config import settings
-from app.domain.entities import RefreshToken, User
+from app.domain.entities import RefreshToken
+from app.domain.exceptions import InactiveUserError, InvalidCredentialsError
 from app.domain.repositories import RefreshTokenRepository, UserRepository
-
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+from app.domain.services import PasswordHasher
 
 
 @dataclass
@@ -30,17 +27,19 @@ class LoginUseCase:
         user_repo: UserRepository,
         refresh_token_repo: RefreshTokenRepository,
         token_service: TokenService,
+        password_hasher: PasswordHasher,
     ):
         self._user_repo = user_repo
         self._refresh_token_repo = refresh_token_repo
         self._token_service = token_service
+        self._password_hasher = password_hasher
 
     async def execute(self, input: LoginInput) -> LoginOutput:
         user = await self._user_repo.find_by_email(input.email)
-        if not user or not pwd_context.verify(input.password, user.password_hash):
-            raise LookupError("Invalid credentials")
+        if not user or not self._password_hasher.verify(input.password, user.password_hash):
+            raise InvalidCredentialsError("Invalid credentials")
         if not user.is_active:
-            raise PermissionError("User is inactive")
+            raise InactiveUserError("User is inactive")
 
         access_token = self._token_service.create_access_token(
             str(user.id), user.email, str(user.family_id), user.role

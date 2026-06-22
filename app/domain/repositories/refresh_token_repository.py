@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from app.domain.entities import RefreshToken
 
@@ -9,7 +8,7 @@ class RefreshTokenRepository(ABC):
     async def save(self, token: RefreshToken) -> RefreshToken: ...
 
     @abstractmethod
-    async def find_by_hash(self, token_hash: str) -> Optional[RefreshToken]: ...
+    async def find_by_hash(self, token_hash: str) -> RefreshToken | None: ...
 
     @abstractmethod
     async def revoke(self, token_hash: str) -> None: ...

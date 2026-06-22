@@ -37,7 +37,7 @@ class SQLAlchemyFamilyRepository(FamilyRepository):
         await self._session.refresh(merged)
         return self._to_entity(merged)
 
-    async def find_by_id(self, id):
+    async def find_by_id(self, id: UUID) -> Family | None:
         result = await self._session.execute(select(FamilyModel).where(FamilyModel.id == id))
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None

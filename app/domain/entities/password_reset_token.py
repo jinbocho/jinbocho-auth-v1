@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional
 from uuid import UUID, uuid4
 
 
@@ -13,7 +12,7 @@ class PasswordResetToken:
     user_id: UUID
     token_hash: str
     expires_at: datetime
-    used_at: Optional[datetime] = None
+    used_at: datetime | None = None
     # "reset": user requested a forgotten-password link.
     # "invite": admin created the account; this is its first password setup.
     purpose: str = "reset"

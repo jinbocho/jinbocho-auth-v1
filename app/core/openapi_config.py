@@ -1,6 +1,8 @@
 """OpenAPI 3.0 configuration and metadata."""
 
-OPENAPI_TAGS_METADATA = [
+from typing import Any
+
+OPENAPI_TAGS_METADATA: list[dict[str, str]] = [
     {
         "name": "auth",
         "description": "User authentication: register, login, refresh tokens, logout.",
@@ -15,7 +17,7 @@ OPENAPI_TAGS_METADATA = [
     },
 ]
 
-OPENAPI_CONFIG = {
+OPENAPI_CONFIG: dict[str, Any] = {
     "title": "Jinbocho Auth Service",
     "version": "0.1.0",
     "description": "Authentication and family user management service for Jinbocho home library system. "

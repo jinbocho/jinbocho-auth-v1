@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +24,8 @@ class SQLAlchemyUserRepository(UserRepository):
             is_active=model.is_active,
             annual_reading_goal=model.annual_reading_goal,
             language=model.language,
+            theme_name=model.theme_name,
+            theme_mode=model.theme_mode,
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
@@ -37,6 +41,8 @@ class SQLAlchemyUserRepository(UserRepository):
             is_active=user.is_active,
             annual_reading_goal=user.annual_reading_goal,
             language=user.language,
+            theme_name=user.theme_name,
+            theme_mode=user.theme_mode,
             created_at=user.created_at,
             updated_at=user.updated_at,
         )
@@ -48,23 +54,23 @@ class SQLAlchemyUserRepository(UserRepository):
         await self._session.refresh(merged)
         return self._to_entity(merged)
 
-    async def find_by_email(self, email: str):
+    async def find_by_email(self, email: str) -> User | None:
         result = await self._session.execute(select(UserModel).where(UserModel.email == email))
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None
 
-    async def find_by_id(self, id):
+    async def find_by_id(self, id: UUID) -> User | None:
         result = await self._session.execute(select(UserModel).where(UserModel.id == id))
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None
 
-    async def find_by_family(self, family_id):
+    async def find_by_family(self, family_id: UUID) -> list[User]:
         result = await self._session.execute(
             select(UserModel).where(UserModel.family_id == family_id).order_by(UserModel.full_name)
         )
         return [self._to_entity(model) for model in result.scalars().all()]
 
-    async def delete(self, id) -> None:
+    async def delete(self, id: UUID) -> None:
         result = await self._session.execute(select(UserModel).where(UserModel.id == id))
         model = result.scalar_one_or_none()
         if model:

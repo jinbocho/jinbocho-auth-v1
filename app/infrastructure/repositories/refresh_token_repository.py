@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,7 +37,7 @@ class SQLAlchemyRefreshTokenRepository(RefreshTokenRepository):
         await self._session.refresh(model)
         return self._to_entity(model)
 
-    async def find_by_hash(self, token_hash: str):
+    async def find_by_hash(self, token_hash: str) -> RefreshToken | None:
         result = await self._session.execute(
             select(RefreshTokenModel).where(RefreshTokenModel.token_hash == token_hash)
         )
@@ -48,13 +50,11 @@ class SQLAlchemyRefreshTokenRepository(RefreshTokenRepository):
         )
         model = result.scalar_one_or_none()
         if model:
-            from app.application.services import TokenService
-            model.revoked_at = TokenService.utcnow()
+            model.revoked_at = datetime.now(timezone.utc)
             await self._session.flush()
 
     async def cleanup_expired(self) -> int:
-        from app.application.services import TokenService
-        now = TokenService.utcnow()
+        now = datetime.now(timezone.utc)
         result = await self._session.execute(
             select(RefreshTokenModel).where(RefreshTokenModel.expires_at < now)
         )

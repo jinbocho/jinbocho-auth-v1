@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
 from app.application.services import TokenService
-from app.config import settings
 from app.domain.repositories import RefreshTokenRepository
 
 
@@ -11,10 +10,10 @@ class LogoutInput:
 
 
 class LogoutUseCase:
-    def __init__(self, refresh_token_repo: RefreshTokenRepository):
+    def __init__(self, refresh_token_repo: RefreshTokenRepository, token_service: TokenService):
         self._refresh_token_repo = refresh_token_repo
+        self._token_service = token_service
 
     async def execute(self, input: LogoutInput) -> None:
-        token_service = TokenService(settings)
-        token_hash = token_service.hash_token(input.refresh_token)
+        token_hash = self._token_service.hash_token(input.refresh_token)
         await self._refresh_token_repo.revoke(token_hash)

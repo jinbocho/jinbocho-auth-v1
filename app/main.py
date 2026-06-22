@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from app.api.v1.router import router as v1_router
 from app.core import OPENAPI_CONFIG, configure_exception_handlers, lifespan
 from app.limiter import limiter
-import app.infrastructure.models  # noqa: F401 — registers ORM models with SQLAlchemy
+import app.infrastructure.models as _models  # noqa: F401 — registers ORM models with SQLAlchemy
 
 
 def create_app() -> FastAPI:
@@ -32,7 +32,7 @@ def create_app() -> FastAPI:
         summary="Health check",
         description="Check if the service is running.",
     )
-    async def health():
+    async def health() -> dict[str, str]:
         """Health check endpoint."""
         return {"status": "ok", "service": "auth-service"}
 

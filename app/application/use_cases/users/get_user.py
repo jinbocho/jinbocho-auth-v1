@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
+from app.domain.exceptions import EntityNotFoundError
 from app.domain.repositories import UserRepository
 
 
@@ -20,6 +21,8 @@ class GetUserOutput:
     is_active: bool
     annual_reading_goal: int | None = None
     language: str | None = None
+    theme_name: str | None = None
+    theme_mode: str | None = None
 
 
 class GetUserUseCase:
@@ -29,7 +32,7 @@ class GetUserUseCase:
     async def execute(self, input: GetUserInput) -> GetUserOutput:
         user = await self._user_repo.find_by_id(input.user_id)
         if not user or user.family_id != input.requester_family_id:
-            raise LookupError("User not found")
+            raise EntityNotFoundError("User not found")
 
         return GetUserOutput(
             id=user.id,
@@ -40,4 +43,6 @@ class GetUserUseCase:
             is_active=user.is_active,
             annual_reading_goal=user.annual_reading_goal,
             language=user.language,
+            theme_name=user.theme_name,
+            theme_mode=user.theme_mode,
         )
