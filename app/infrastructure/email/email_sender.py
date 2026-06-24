@@ -1,6 +1,7 @@
 import logging
 import smtplib
 import socket
+from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -219,6 +220,52 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
             ),
         },
     },
+    "loan_reminder": {
+        "en": {
+            "subject": "Reminder: a loaned book is due soon",
+            "body_text": (
+                '"{book_title}", lent to {borrower_name}, is due back on {due_date}.\n\n'
+                "You might want to follow up with them."
+            ),
+            "body_html": (
+                "<p>“{book_title}”, lent to {borrower_name}, is due back on {due_date}.</p>"
+                "<p>You might want to follow up with them.</p>"
+            ),
+        },
+        "it": {
+            "subject": "Promemoria: un libro prestato è quasi in scadenza",
+            "body_text": (
+                '"{book_title}", prestato a {borrower_name}, scade il {due_date}.\n\n'
+                "Potrebbe essere il momento di sollecitarne la restituzione."
+            ),
+            "body_html": (
+                "<p>“{book_title}”, prestato a {borrower_name}, scade il {due_date}.</p>"
+                "<p>Potrebbe essere il momento di sollecitarne la restituzione.</p>"
+            ),
+        },
+        "es": {
+            "subject": "Recordatorio: un libro prestado vence pronto",
+            "body_text": (
+                '"{book_title}", prestado a {borrower_name}, vence el {due_date}.\n\n'
+                "Quizás quieras pedirle que lo devuelva."
+            ),
+            "body_html": (
+                "<p>“{book_title}”, prestado a {borrower_name}, vence el {due_date}.</p>"
+                "<p>Quizás quieras pedirle que lo devuelva.</p>"
+            ),
+        },
+        "fr": {
+            "subject": "Rappel : un livre prêté arrive à échéance",
+            "body_text": (
+                '« {book_title} », prêté à {borrower_name}, doit être rendu le {due_date}.\n\n'
+                "Vous voudrez peut-être le lui rappeler."
+            ),
+            "body_html": (
+                "<p>« {book_title} », prêté à {borrower_name}, doit être rendu le {due_date}.</p>"
+                "<p>Vous voudrez peut-être le lui rappeler.</p>"
+            ),
+        },
+    },
 }
 
 
@@ -283,6 +330,33 @@ class EmailSender:
             body_html=tmpl["body_html"].format(family_name=family_name, link=link),
             log_context="welcome email",
             console_link=link,
+        )
+
+    def send_loan_reminder(
+        self,
+        to_email: str,
+        book_title: str,
+        borrower_name: str,
+        due_date: datetime,
+        language: str | None = None,
+    ) -> None:
+        """Tell the family a book they lent out is due back soon. No
+        token/link involved — this is informational, not actionable."""
+        templates = _TEMPLATES["loan_reminder"]
+        lang = language if language in templates else "en"
+        tmpl = templates[lang]
+        due_date_str = due_date.strftime("%Y-%m-%d")
+        self._send(
+            to_email,
+            subject=tmpl["subject"],
+            body_text=tmpl["body_text"].format(
+                book_title=book_title, borrower_name=borrower_name, due_date=due_date_str
+            ),
+            body_html=tmpl["body_html"].format(
+                book_title=book_title, borrower_name=borrower_name, due_date=due_date_str
+            ),
+            log_context="loan reminder",
+            console_link="",
         )
 
     def _send(

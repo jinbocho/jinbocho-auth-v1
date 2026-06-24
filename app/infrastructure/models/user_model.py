@@ -29,6 +29,7 @@ class UserModel(Base):
     language: Mapped[str | None] = mapped_column(String(2), nullable=True)
     theme_name: Mapped[str | None] = mapped_column(String(20), nullable=True)
     theme_mode: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    password_set_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

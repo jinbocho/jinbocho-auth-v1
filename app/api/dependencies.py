@@ -3,7 +3,7 @@ from typing import Any
 from uuid import UUID
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -100,6 +100,13 @@ async def get_current_user_payload(
     return payload
 
 
+async def verify_internal_token(x_internal_token: str | None = Header(default=None)) -> None:
+    """Gate for service-to-service endpoints (no user JWT involved) — the
+    caller (e.g. catalog-service) must present the shared secret."""
+    if not settings.internal_service_token or x_internal_token != settings.internal_service_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid internal token")
+
+
 def require_role(*roles: str) -> Callable[..., Any]:
     async def checker(payload: dict[str, Any] = Depends(get_current_user_payload)) -> dict[str, Any]:
         if payload.get("role") not in roles:
@@ -113,6 +120,7 @@ __all__ = [
     "AsyncSession",
     "get_db",
     "get_current_user_payload",
+    "verify_internal_token",
     "require_role",
     "get_token_service",
     "get_refresh_token_repository",

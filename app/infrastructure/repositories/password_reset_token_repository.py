@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities import PasswordResetToken
@@ -55,3 +55,15 @@ class SQLAlchemyPasswordResetTokenRepository(PasswordResetTokenRepository):
         if model:
             model.used_at = used_at
             await self._session.flush()
+
+    async def invalidate_pending(self, user_id: UUID, purpose: str, used_at: datetime) -> None:
+        await self._session.execute(
+            update(PasswordResetTokenModel)
+            .where(
+                PasswordResetTokenModel.user_id == user_id,
+                PasswordResetTokenModel.purpose == purpose,
+                PasswordResetTokenModel.used_at.is_(None),
+            )
+            .values(used_at=used_at)
+        )
+        await self._session.flush()

@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     smtp_timeout_seconds: int = 10
     email_from: str = "noreply@jinbocho.local"
 
+    # Shared secret for service-to-service calls (e.g. catalog-service asking
+    # us to send a loan-reminder email) — these don't carry a user JWT.
+    internal_service_token: str = ""
+
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).parent.parent / ".env"),
         env_file_encoding="utf-8",

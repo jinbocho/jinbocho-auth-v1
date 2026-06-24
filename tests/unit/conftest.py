@@ -89,6 +89,11 @@ class MockPasswordResetTokenRepository(PasswordResetTokenRepository):
         if token:
             token.used_at = used_at
 
+    async def invalidate_pending(self, user_id, purpose, used_at) -> None:
+        for token in self.tokens.values():
+            if token.user_id == user_id and token.purpose == purpose and token.used_at is None:
+                token.used_at = used_at
+
 
 class FakeEmailSender:
     """Captures sent links instead of touching SMTP/stdout, for assertions in tests."""
@@ -102,6 +107,18 @@ class FakeEmailSender:
     def send_welcome_email(self, to_email, family_name, link, language=None) -> None:
         self.sent.append(
             {"to_email": to_email, "family_name": family_name, "link": link, "purpose": "welcome", "language": language}
+        )
+
+    def send_loan_reminder(self, to_email, book_title, borrower_name, due_date, language=None) -> None:
+        self.sent.append(
+            {
+                "to_email": to_email,
+                "book_title": book_title,
+                "borrower_name": borrower_name,
+                "due_date": due_date,
+                "purpose": "loan_reminder",
+                "language": language,
+            }
         )
 
 

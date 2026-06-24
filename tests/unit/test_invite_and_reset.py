@@ -82,6 +82,8 @@ async def test_invited_user_can_set_password_via_the_link(
 
     user = await mock_user_repo.find_by_id(token.user_id)
     assert password_hasher.verify("MyOwnPassword123", user.password_hash)
+    # password_set_at is the "invite no longer pending" signal shown in the UI.
+    assert user.password_set_at is not None
 
     # The invite token must now be single-use, same as a forgot-password token.
     with pytest.raises(ValueError):

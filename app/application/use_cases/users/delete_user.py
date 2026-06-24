@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from app.domain.exceptions import EntityNotFoundError
+from app.domain.exceptions import EntityNotFoundError, LastAdminError
 from app.domain.repositories import UserRepository
 
 
@@ -19,4 +19,13 @@ class DeleteUserUseCase:
         user = await self._user_repo.find_by_id(input.user_id)
         if not user or user.family_id != input.requester_family_id:
             raise EntityNotFoundError("User not found")
+
+        if user.role == "admin" and user.is_active:
+            family = await self._user_repo.find_by_family(user.family_id)
+            other_active_admins = any(
+                u.id != user.id and u.role == "admin" and u.is_active for u in family
+            )
+            if not other_active_admins:
+                raise LastAdminError("Cannot remove the family's last active admin")
+
         await self._user_repo.delete(input.user_id)

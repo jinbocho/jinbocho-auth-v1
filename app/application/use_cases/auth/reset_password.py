@@ -50,6 +50,7 @@ class ResetPasswordUseCase:
             raise InvalidResetTokenError("Invalid or expired reset token")
 
         user.password_hash = self._password_hasher.hash(input.new_password)
+        user.password_set_at = now
         user.updated_at = now
         await self._user_repo.save(user)
         await self._reset_token_repo.mark_used(token.id, now)

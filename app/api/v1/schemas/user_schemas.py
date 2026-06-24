@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -17,6 +18,9 @@ class UserResponse(BaseModel):
     language: str | None = Field(default=None, description="UI language preference: en, it, es, fr")
     theme_name: str | None = Field(default=None, description="UI theme: pergamena, akabeni, sumi")
     theme_mode: str | None = Field(default=None, description="UI colour mode: light, dark, system")
+    password_set_at: datetime | None = Field(
+        default=None, description="When the user set their own password; null means their invite is still pending"
+    )
 
 
 class UserCreate(BaseModel):

@@ -36,6 +36,8 @@ from app.application.use_cases.users import (
     UpdateUserInput,
     DeleteUserUseCase,
     DeleteUserInput,
+    ResendInviteUseCase,
+    ResendInviteInput,
     ExportFamilyDataUseCase,
     ExportFamilyDataInput,
     ImportUsersUseCase,
@@ -164,6 +166,28 @@ async def update_user(
         )
     )
     return UserResponse(**result.__dict__)
+
+
+@router.post(
+    "/{user_id}/resend-invite",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Resend invite",
+    description="Resend the invite email with a fresh password-setup link, invalidating any "
+    "earlier unused invite link. Only valid while the user hasn't set their password yet. "
+    "Requires admin role."
+)
+async def resend_invite(
+    user_id: UUID,
+    payload: dict[str, Any] = Depends(require_role("admin")),
+    user_repo: UserRepository = Depends(get_user_repository),
+    reset_token_repo: PasswordResetTokenRepository = Depends(get_password_reset_token_repository),
+    email_sender: EmailSender = Depends(get_email_sender),
+    token_service: TokenService = Depends(get_token_service),
+) -> None:
+    use_case = ResendInviteUseCase(user_repo, reset_token_repo, email_sender, token_service)
+    await use_case.execute(
+        ResendInviteInput(user_id=user_id, requester_family_id=UUID(payload["family_id"]))
+    )
 
 
 @router.get(

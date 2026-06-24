@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
 
 from app.domain.exceptions import EntityNotFoundError
@@ -23,6 +24,7 @@ class GetUserOutput:
     language: str | None = None
     theme_name: str | None = None
     theme_mode: str | None = None
+    password_set_at: datetime | None = None
 
 
 class GetUserUseCase:
@@ -45,4 +47,5 @@ class GetUserUseCase:
             language=user.language,
             theme_name=user.theme_name,
             theme_mode=user.theme_mode,
+            password_set_at=user.password_set_at,
         )

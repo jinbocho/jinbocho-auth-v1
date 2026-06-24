@@ -26,6 +26,7 @@ class SQLAlchemyUserRepository(UserRepository):
             language=model.language,
             theme_name=model.theme_name,
             theme_mode=model.theme_mode,
+            password_set_at=model.password_set_at,
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
@@ -43,6 +44,7 @@ class SQLAlchemyUserRepository(UserRepository):
             language=user.language,
             theme_name=user.theme_name,
             theme_mode=user.theme_mode,
+            password_set_at=user.password_set_at,
             created_at=user.created_at,
             updated_at=user.updated_at,
         )

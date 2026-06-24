@@ -14,3 +14,9 @@ class PasswordResetTokenRepository(ABC):
 
     @abstractmethod
     async def mark_used(self, token_id: UUID, used_at: datetime) -> None: ...
+
+    @abstractmethod
+    async def invalidate_pending(self, user_id: UUID, purpose: str, used_at: datetime) -> None:
+        """Mark every unused token of this purpose for this user as used,
+        so a resent invite link makes any earlier one stop working."""
+        ...

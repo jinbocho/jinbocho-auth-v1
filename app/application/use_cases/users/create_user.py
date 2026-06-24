@@ -1,5 +1,6 @@
 import secrets
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
 
 from app.application.services import TokenService, issue_password_setup_link
@@ -27,6 +28,7 @@ class CreateUserOutput:
     full_name: str
     role: str
     is_active: bool
+    password_set_at: datetime | None = None
 
 
 class CreateUserUseCase:

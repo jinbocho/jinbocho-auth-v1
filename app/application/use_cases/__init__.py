@@ -43,6 +43,10 @@ from .families import (
     UpdateFamilyInput,
     UpdateFamilyOutput,
 )
+from .notifications import (
+    NotifyLoanReminderUseCase,
+    NotifyLoanReminderInput,
+)
 
 __all__ = [
     # Auth use cases
@@ -87,4 +91,7 @@ __all__ = [
     "UpdateFamilyUseCase",
     "UpdateFamilyInput",
     "UpdateFamilyOutput",
+    # Notification use cases
+    "NotifyLoanReminderUseCase",
+    "NotifyLoanReminderInput",
 ]

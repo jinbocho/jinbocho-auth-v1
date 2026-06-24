@@ -1,7 +1,8 @@
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
 
-from app.domain.exceptions import EntityNotFoundError
+from app.domain.exceptions import EntityNotFoundError, LastAdminError
 from app.domain.repositories import UserRepository
 
 
@@ -34,6 +35,7 @@ class UpdateUserOutput:
     language: str | None = None
     theme_name: str | None = None
     theme_mode: str | None = None
+    password_set_at: datetime | None = None
 
 
 class UpdateUserUseCase:
@@ -44,6 +46,16 @@ class UpdateUserUseCase:
         user = await self._user_repo.find_by_id(input.user_id)
         if not user or user.family_id != input.requester_family_id:
             raise EntityNotFoundError("User not found")
+
+        demoting_admin = input.role is not None and input.role != "admin"
+        deactivating = input.is_active is False
+        if user.role == "admin" and user.is_active and (demoting_admin or deactivating):
+            family = await self._user_repo.find_by_family(user.family_id)
+            other_active_admins = any(
+                u.id != user.id and u.role == "admin" and u.is_active for u in family
+            )
+            if not other_active_admins:
+                raise LastAdminError("Cannot remove the family's last active admin")
 
         if input.full_name is not None:
             user.full_name = input.full_name
@@ -72,4 +84,5 @@ class UpdateUserUseCase:
             language=updated_user.language,
             theme_name=updated_user.theme_name,
             theme_mode=updated_user.theme_mode,
+            password_set_at=updated_user.password_set_at,
         )

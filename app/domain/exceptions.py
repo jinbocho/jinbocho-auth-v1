@@ -36,6 +36,10 @@ class EmailAlreadyRegisteredError(ValueError):
     """An email address is already associated with an existing account."""
 
 
+class LastAdminError(ValueError):
+    """Refused: this would leave the family with no active admin."""
+
+
 class InvalidResetTokenError(ValueError):
     """A password-reset/invite token is unknown, expired, or otherwise unusable."""
 
