@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from app.application.services.token_service import TokenService
 from app.domain.entities import PasswordResetToken, User
 from app.domain.repositories import PasswordResetTokenRepository
-from app.infrastructure.email.email_sender import EmailSender
+from app.application.ports import EmailService
 
 
 async def issue_password_setup_link(
@@ -13,7 +13,7 @@ async def issue_password_setup_link(
     purpose: str,
     expire_minutes: int,
     reset_token_repo: PasswordResetTokenRepository,
-    email_sender: EmailSender,
+    email_sender: EmailService,
     token_service: TokenService,
     frontend_base_url: str,
 ) -> None:
@@ -38,5 +38,7 @@ async def issue_password_setup_link(
 
     link = f"{frontend_base_url}/reset-password?token={raw_token}&mode={purpose}"
     await asyncio.to_thread(
-        email_sender.send_password_setup_link, user.email, link, purpose=purpose, language=user.language
+        email_sender.send_password_setup_link,
+        user.email, link, purpose=purpose,
+        language=user.language.value if user.language else None,
     )

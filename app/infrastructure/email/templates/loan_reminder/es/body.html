@@ -1,0 +1,22 @@
+{% extends "_base.html" %}
+{% block preheader %}Recordatorio: "{{ book_title }}" prestado a {{ borrower_name }} vence el {{ due_date }}.{% endblock %}
+{% block content %}
+<h2 class="email-title">Recordatorio de préstamo</h2>
+<p class="email-meta">Biblioteca &middot; Vencimiento Próximo</p>
+<p class="email-text">
+  Uno de los libros que prestaste está por vencer. Quizás quieras ponerte en contacto con el prestatario.
+</p>
+<div class="info-card">
+  <span class="info-label">Libro</span>
+  <span class="info-value">{{ book_title }}</span>
+</div>
+<div class="info-card">
+  <span class="info-label">Prestado a</span>
+  <span class="info-value">{{ borrower_name }}</span>
+</div>
+<div class="info-card">
+  <span class="info-label">Vencimiento</span>
+  <span class="info-value due-date-value">{{ due_date }}</span>
+</div>
+{% endblock %}
+{% block footer_text %}Gestión de tu biblioteca en casa{% endblock %}

@@ -20,3 +20,8 @@ class PasswordResetTokenRepository(ABC):
         """Mark every unused token of this purpose for this user as used,
         so a resent invite link makes any earlier one stop working."""
         ...
+
+    @abstractmethod
+    async def cleanup_expired(self) -> int:
+        """Delete tokens that are expired or already used. Returns the count removed."""
+        ...

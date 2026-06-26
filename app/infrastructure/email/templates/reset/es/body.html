@@ -1,0 +1,26 @@
+{% extends "_base.html" %}
+{% block preheader %}Solicitud de restablecimiento de contraseña para tu cuenta Jinbocho — enlace válido 15 minutos.{% endblock %}
+{% block content %}
+<h2 class="email-title">Restablece tu contraseña</h2>
+<p class="email-meta">Seguridad &middot; Restablecimiento de Contraseña</p>
+<p class="email-text">
+  Recibimos una solicitud para restablecer la contraseña de tu cuenta Jinbocho.
+  Haz clic en el botón de abajo para elegir una nueva.
+</p>
+<p class="email-note">
+  Este enlace expira en <strong>15 minutos</strong>.
+  Si no solicitaste el restablecimiento, puedes ignorar este correo &mdash; tu cuenta sigue siendo segura.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" class="cta-table">
+  <tr>
+    <td class="cta-cell">
+      <a href="{{ link }}" class="cta-link">Restablecer mi contraseña</a>
+    </td>
+  </tr>
+</table>
+<p class="fallback-block">
+  O copia este enlace en tu navegador:<br />
+  <a href="{{ link }}" class="fallback-link">{{ link }}</a>
+</p>
+{% endblock %}
+{% block footer_text %}Gestión de tu biblioteca en casa{% endblock %}

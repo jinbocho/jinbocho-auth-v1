@@ -1,15 +1,16 @@
-from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies import (
+    JWTPayload,
+    get_create_user_use_case,
     get_current_user_payload,
-    get_email_sender,
+    get_delete_user_use_case,
     get_family_repository,
-    get_password_hasher,
-    get_password_reset_token_repository,
-    get_token_service,
+    get_import_users_use_case,
+    get_resend_invite_use_case,
+    get_update_user_use_case,
     get_user_repository,
     require_role,
 )
@@ -20,31 +21,28 @@ from app.api.v1.schemas.export_schemas import (
     ImportUsersResponse,
     UserExportItem,
 )
-from app.api.v1.schemas.user_schemas import MeUpdate, UserResponse, UserCreate, UserUpdate
-from app.application.services import TokenService
-from app.domain.entities import User
-from app.domain.repositories import FamilyRepository, PasswordResetTokenRepository, UserRepository
-from app.domain.services import PasswordHasher
+from app.api.v1.schemas.user_schemas import MeUpdate, UserCreate, UserResponse, UserUpdate
 from app.application.use_cases.users import (
-    CreateUserUseCase,
     CreateUserInput,
-    GetUserUseCase,
-    GetUserInput,
-    ListUsersUseCase,
-    ListUsersInput,
-    UpdateUserUseCase,
-    UpdateUserInput,
-    DeleteUserUseCase,
+    CreateUserUseCase,
     DeleteUserInput,
-    ResendInviteUseCase,
-    ResendInviteInput,
-    ExportFamilyDataUseCase,
+    DeleteUserUseCase,
     ExportFamilyDataInput,
-    ImportUsersUseCase,
-    ImportUsersInput,
+    ExportFamilyDataUseCase,
+    GetUserInput,
+    GetUserUseCase,
     ImportUserItem,
+    ImportUsersInput,
+    ImportUsersUseCase,
+    ListUsersInput,
+    ListUsersUseCase,
+    ResendInviteInput,
+    ResendInviteUseCase,
+    UpdateUserInput,
+    UpdateUserUseCase,
 )
-from app.infrastructure.email import EmailSender
+from app.domain.entities import User
+from app.domain.repositories import FamilyRepository, UserRepository
 
 router = APIRouter()
 
@@ -56,14 +54,14 @@ router = APIRouter()
     description="Get current authenticated user's information."
 )
 async def get_me(
-    payload: dict[str, Any] = Depends(get_current_user_payload),
+    payload: JWTPayload = Depends(get_current_user_payload),
     user_repo: UserRepository = Depends(get_user_repository),
 ) -> UserResponse:
     use_case = GetUserUseCase(user_repo)
     result = await use_case.execute(
         GetUserInput(user_id=UUID(payload["sub"]), requester_family_id=UUID(payload["family_id"]))
     )
-    return UserResponse(**result.__dict__)
+    return UserResponse.model_validate(result)
 
 
 @router.post(
@@ -76,14 +74,9 @@ async def get_me(
 )
 async def create_user(
     request: UserCreate,
-    payload: dict[str, Any] = Depends(require_role("admin")),
-    user_repo: UserRepository = Depends(get_user_repository),
-    reset_token_repo: PasswordResetTokenRepository = Depends(get_password_reset_token_repository),
-    email_sender: EmailSender = Depends(get_email_sender),
-    token_service: TokenService = Depends(get_token_service),
-    password_hasher: PasswordHasher = Depends(get_password_hasher),
+    payload: JWTPayload = Depends(require_role("admin")),
+    use_case: CreateUserUseCase = Depends(get_create_user_use_case),
 ) -> UserResponse:
-    use_case = CreateUserUseCase(user_repo, reset_token_repo, email_sender, token_service, password_hasher)
     result = await use_case.execute(
         CreateUserInput(
             family_id=UUID(payload["family_id"]),
@@ -92,7 +85,7 @@ async def create_user(
             role=request.role,
         )
     )
-    return UserResponse(**result.__dict__)
+    return UserResponse.model_validate(result)
 
 
 @router.get(
@@ -103,7 +96,7 @@ async def create_user(
     "(the roster is needed to show who is reading which book)."
 )
 async def list_users(
-    payload: dict[str, Any] = Depends(get_current_user_payload),
+    payload: JWTPayload = Depends(get_current_user_payload),
     user_repo: UserRepository = Depends(get_user_repository),
 ) -> list[User]:
     use_case = ListUsersUseCase(user_repo)
@@ -119,10 +112,9 @@ async def list_users(
 )
 async def update_me(
     request: MeUpdate,
-    payload: dict[str, Any] = Depends(get_current_user_payload),
-    user_repo: UserRepository = Depends(get_user_repository),
+    payload: JWTPayload = Depends(get_current_user_payload),
+    use_case: UpdateUserUseCase = Depends(get_update_user_use_case),
 ) -> UserResponse:
-    use_case = UpdateUserUseCase(user_repo)
     result = await use_case.execute(
         UpdateUserInput(
             user_id=UUID(payload["sub"]),
@@ -135,7 +127,7 @@ async def update_me(
             theme_mode=request.theme_mode,
         )
     )
-    return UserResponse(**result.__dict__)
+    return UserResponse.model_validate(result)
 
 
 @router.patch(
@@ -147,10 +139,9 @@ async def update_me(
 async def update_user(
     user_id: UUID,
     request: UserUpdate,
-    payload: dict[str, Any] = Depends(require_role("admin")),
-    user_repo: UserRepository = Depends(get_user_repository),
+    payload: JWTPayload = Depends(require_role("admin")),
+    use_case: UpdateUserUseCase = Depends(get_update_user_use_case),
 ) -> UserResponse:
-    use_case = UpdateUserUseCase(user_repo)
     result = await use_case.execute(
         UpdateUserInput(
             user_id=user_id,
@@ -165,7 +156,7 @@ async def update_user(
             theme_mode=request.theme_mode,
         )
     )
-    return UserResponse(**result.__dict__)
+    return UserResponse.model_validate(result)
 
 
 @router.post(
@@ -178,13 +169,9 @@ async def update_user(
 )
 async def resend_invite(
     user_id: UUID,
-    payload: dict[str, Any] = Depends(require_role("admin")),
-    user_repo: UserRepository = Depends(get_user_repository),
-    reset_token_repo: PasswordResetTokenRepository = Depends(get_password_reset_token_repository),
-    email_sender: EmailSender = Depends(get_email_sender),
-    token_service: TokenService = Depends(get_token_service),
+    payload: JWTPayload = Depends(require_role("admin")),
+    use_case: ResendInviteUseCase = Depends(get_resend_invite_use_case),
 ) -> None:
-    use_case = ResendInviteUseCase(user_repo, reset_token_repo, email_sender, token_service)
     await use_case.execute(
         ResendInviteInput(user_id=user_id, requester_family_id=UUID(payload["family_id"]))
     )
@@ -199,7 +186,7 @@ async def resend_invite(
     "same invite-by-email flow used for inviting a new member. Requires admin role."
 )
 async def export_family_data(
-    payload: dict[str, Any] = Depends(require_role("admin")),
+    payload: JWTPayload = Depends(require_role("admin")),
     family_repo: FamilyRepository = Depends(get_family_repository),
     user_repo: UserRepository = Depends(get_user_repository),
 ) -> FamilyDataExportResponse:
@@ -235,17 +222,9 @@ async def export_family_data(
 )
 async def import_users(
     request: ImportUsersRequest,
-    payload: dict[str, Any] = Depends(require_role("admin")),
-    user_repo: UserRepository = Depends(get_user_repository),
-    reset_token_repo: PasswordResetTokenRepository = Depends(get_password_reset_token_repository),
-    email_sender: EmailSender = Depends(get_email_sender),
-    token_service: TokenService = Depends(get_token_service),
-    password_hasher: PasswordHasher = Depends(get_password_hasher),
+    payload: JWTPayload = Depends(require_role("admin")),
+    use_case: ImportUsersUseCase = Depends(get_import_users_use_case),
 ) -> ImportUsersResponse:
-    create_user = CreateUserUseCase(user_repo, reset_token_repo, email_sender, token_service, password_hasher)
-    update_user = UpdateUserUseCase(user_repo)
-    use_case = ImportUsersUseCase(user_repo, create_user, update_user)
-
     result = await use_case.execute(
         ImportUsersInput(
             family_id=UUID(payload["family_id"]),
@@ -280,10 +259,9 @@ async def import_users(
 )
 async def delete_user(
     user_id: UUID,
-    payload: dict[str, Any] = Depends(require_role("admin")),
-    user_repo: UserRepository = Depends(get_user_repository),
+    payload: JWTPayload = Depends(require_role("admin")),
+    use_case: DeleteUserUseCase = Depends(get_delete_user_use_case),
 ) -> None:
-    use_case = DeleteUserUseCase(user_repo)
     await use_case.execute(
         DeleteUserInput(user_id=user_id, requester_family_id=UUID(payload["family_id"]))
     )

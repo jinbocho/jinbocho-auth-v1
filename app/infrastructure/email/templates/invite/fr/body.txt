@@ -1,0 +1,7 @@
+Un compte a été créé pour vous sur Jinbocho.
+
+Cliquez sur le lien ci-dessous pour définir votre mot de passe et commencer (valable 7 jours) :
+
+{{ link }}
+
+Si vous ne vous attendiez pas à cet e-mail, vous pouvez l'ignorer.

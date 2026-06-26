@@ -1,0 +1,26 @@
+{% extends "_base.html" %}
+{% block preheader %}Il tuo account Jinbocho è pronto — imposta la password per iniziare.{% endblock %}
+{% block content %}
+<h2 class="email-title">Sei stato invitato su Jinbocho</h2>
+<p class="email-meta">Account &middot; Invito</p>
+<p class="email-text">
+  È stato creato un account per te su Jinbocho, il sistema di gestione della biblioteca di casa.
+  Clicca il pulsante qui sotto per impostare la tua password e iniziare a organizzare la tua collezione di libri.
+</p>
+<p class="email-note">
+  Questo link di invito è valido per <strong>7 giorni</strong>.
+  Se non ti aspettavi questa email, puoi ignorarla senza problemi.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" class="cta-table">
+  <tr>
+    <td class="cta-cell">
+      <a href="{{ link }}" class="cta-link">Imposta la mia password</a>
+    </td>
+  </tr>
+</table>
+<p class="fallback-block">
+  Oppure copia questo link nel browser:<br />
+  <a href="{{ link }}" class="fallback-link">{{ link }}</a>
+</p>
+{% endblock %}
+{% block footer_text %}Gestione della biblioteca di casa{% endblock %}

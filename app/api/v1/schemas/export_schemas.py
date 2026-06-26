@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+from app.domain.entities.enums import Language, ThemeMode, ThemeName, UserRole
+
 
 class FamilyExportItem(BaseModel):
     """Family identity, exported for display only (never overwritten on import)."""
@@ -18,12 +20,12 @@ class UserExportItem(BaseModel):
     id: UUID = Field(description="Original user ID — used to remap references in the catalog import")
     email: EmailStr
     full_name: str
-    role: str = Field(pattern="^(admin|editor|viewer)$")
+    role: UserRole
     is_active: bool = True
     annual_reading_goal: Optional[int] = None
-    language: Optional[str] = Field(default=None, pattern="^(en|it|es|fr)$")
-    theme_name: Optional[str] = Field(default=None, pattern="^(pergamena|akabeni|sumi)$")
-    theme_mode: Optional[str] = Field(default=None, pattern="^(light|dark|system)$")
+    language: Optional[Language] = None
+    theme_name: Optional[ThemeName] = None
+    theme_mode: Optional[ThemeMode] = None
 
 
 class FamilyDataExportResponse(BaseModel):

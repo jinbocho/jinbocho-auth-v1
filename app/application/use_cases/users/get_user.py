@@ -1,9 +1,13 @@
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
+from app.domain.entities.enums import Language, ThemeMode, ThemeName, UserRole
 from app.domain.exceptions import EntityNotFoundError
 from app.domain.repositories import UserRepository
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -18,12 +22,12 @@ class GetUserOutput:
     family_id: UUID
     email: str
     full_name: str
-    role: str
+    role: UserRole
     is_active: bool
     annual_reading_goal: int | None = None
-    language: str | None = None
-    theme_name: str | None = None
-    theme_mode: str | None = None
+    language: Language | None = None
+    theme_name: ThemeName | None = None
+    theme_mode: ThemeMode | None = None
     password_set_at: datetime | None = None
 
 
@@ -36,6 +40,7 @@ class GetUserUseCase:
         if not user or user.family_id != input.requester_family_id:
             raise EntityNotFoundError("User not found")
 
+        logger.debug("User %s fetched by family %s", input.user_id, input.requester_family_id)
         return GetUserOutput(
             id=user.id,
             family_id=user.family_id,

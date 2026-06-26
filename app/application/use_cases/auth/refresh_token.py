@@ -1,11 +1,13 @@
+import logging
 from dataclasses import dataclass
 from datetime import timedelta
 
 from app.application.services import TokenService
-from app.config import settings
 from app.domain.entities import RefreshToken
 from app.domain.exceptions import InactiveUserError, InvalidCredentialsError
 from app.domain.repositories import RefreshTokenRepository, UserRepository
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -56,8 +58,8 @@ class RefreshTokenUseCase:
         new_token_entity = RefreshToken(
             user_id=user.id,
             token_hash=self._token_service.hash_token(new_refresh_token),
-            expires_at=now + timedelta(days=settings.refresh_token_expire_days),
+            expires_at=now + timedelta(days=self._token_service.refresh_token_expire_days),
         )
         await self._refresh_token_repo.save(new_token_entity)
-
+        logger.debug("Refresh token rotated for user %s", user.id)
         return RefreshTokenOutput(access_token=access_token, refresh_token=new_refresh_token)

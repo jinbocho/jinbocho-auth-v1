@@ -1,0 +1,26 @@
+{% extends "_base.html" %}
+{% block preheader %}Tu cuenta de Jinbocho está lista — establece tu contraseña para empezar.{% endblock %}
+{% block content %}
+<h2 class="email-title">Has sido invitado a Jinbocho</h2>
+<p class="email-meta">Cuenta &middot; Invitación</p>
+<p class="email-text">
+  Se ha creado una cuenta para ti en Jinbocho, el sistema de gestión de tu biblioteca en casa.
+  Haz clic en el botón de abajo para establecer tu contraseña y empezar a organizar tu colección de libros.
+</p>
+<p class="email-note">
+  Este enlace de invitación es válido por <strong>7 días</strong>.
+  Si no esperabas este correo, puedes ignorarlo sin problema.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" class="cta-table">
+  <tr>
+    <td class="cta-cell">
+      <a href="{{ link }}" class="cta-link">Establecer mi contraseña</a>
+    </td>
+  </tr>
+</table>
+<p class="fallback-block">
+  O copia este enlace en tu navegador:<br />
+  <a href="{{ link }}" class="fallback-link">{{ link }}</a>
+</p>
+{% endblock %}
+{% block footer_text %}Gestión de tu biblioteca en casa{% endblock %}

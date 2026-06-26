@@ -1,47 +1,37 @@
 from fastapi import APIRouter, Depends, Request, Response, status
 
 from app.api.dependencies import (
-    get_email_sender,
-    get_family_repository,
-    get_password_hasher,
-    get_password_reset_token_repository,
-    get_refresh_token_repository,
-    get_token_service,
-    get_user_repository,
+    get_forgot_password_use_case,
+    get_login_use_case,
+    get_logout_use_case,
+    get_refresh_token_use_case,
+    get_register_family_use_case,
+    get_reset_password_use_case,
 )
 from app.api.v1.schemas.auth_schemas import (
+    ForgotPasswordRequest,
+    LoginRequest,
+    LogoutRequest,
+    RefreshRequest,
     RegisterRequest,
     RegisterResponse,
-    LoginRequest,
-    TokenResponse,
-    RefreshRequest,
-    LogoutRequest,
-    ForgotPasswordRequest,
     ResetPasswordRequest,
+    TokenResponse,
 )
 from app.application.use_cases.auth import (
-    RegisterFamilyInput,
-    RegisterFamilyUseCase,
     LoginInput,
     LoginUseCase,
-    RefreshTokenInput,
-    RefreshTokenUseCase,
     LogoutInput,
     LogoutUseCase,
-    RequestPasswordResetUseCase,
+    RefreshTokenInput,
+    RefreshTokenUseCase,
+    RegisterFamilyInput,
+    RegisterFamilyUseCase,
     RequestPasswordResetInput,
-    ResetPasswordUseCase,
+    RequestPasswordResetUseCase,
     ResetPasswordInput,
+    ResetPasswordUseCase,
 )
-from app.application.services import TokenService
-from app.domain.repositories import (
-    FamilyRepository,
-    PasswordResetTokenRepository,
-    RefreshTokenRepository,
-    UserRepository,
-)
-from app.domain.services import PasswordHasher
-from app.infrastructure.email import EmailSender
 from app.limiter import limiter
 
 router = APIRouter()
@@ -61,12 +51,8 @@ router = APIRouter()
 async def register_family(
     request: Request,
     body: RegisterRequest,
-    family_repo: FamilyRepository = Depends(get_family_repository),
-    user_repo: UserRepository = Depends(get_user_repository),
-    password_hasher: PasswordHasher = Depends(get_password_hasher),
-    email_sender: EmailSender = Depends(get_email_sender),
+    use_case: RegisterFamilyUseCase = Depends(get_register_family_use_case),
 ) -> RegisterResponse:
-    use_case = RegisterFamilyUseCase(family_repo, user_repo, password_hasher, email_sender)
     result = await use_case.execute(
         RegisterFamilyInput(
             family_name=body.family_name,
@@ -91,12 +77,8 @@ async def register_family(
 async def login(
     request: Request,
     body: LoginRequest,
-    user_repo: UserRepository = Depends(get_user_repository),
-    token_service: TokenService = Depends(get_token_service),
-    refresh_token_repo: RefreshTokenRepository = Depends(get_refresh_token_repository),
-    password_hasher: PasswordHasher = Depends(get_password_hasher),
+    use_case: LoginUseCase = Depends(get_login_use_case),
 ) -> TokenResponse:
-    use_case = LoginUseCase(user_repo, refresh_token_repo, token_service, password_hasher)
     result = await use_case.execute(LoginInput(email=body.email, password=body.password))
     return TokenResponse(access_token=result.access_token, refresh_token=result.refresh_token)
 
@@ -114,11 +96,8 @@ async def login(
 async def refresh_token(
     request: Request,
     body: RefreshRequest,
-    user_repo: UserRepository = Depends(get_user_repository),
-    token_service: TokenService = Depends(get_token_service),
-    refresh_token_repo: RefreshTokenRepository = Depends(get_refresh_token_repository),
+    use_case: RefreshTokenUseCase = Depends(get_refresh_token_use_case),
 ) -> TokenResponse:
-    use_case = RefreshTokenUseCase(user_repo, refresh_token_repo, token_service)
     result = await use_case.execute(RefreshTokenInput(refresh_token=body.refresh_token))
     return TokenResponse(access_token=result.access_token, refresh_token=result.refresh_token)
 
@@ -131,10 +110,8 @@ async def refresh_token(
 )
 async def logout(
     body: LogoutRequest,
-    token_service: TokenService = Depends(get_token_service),
-    refresh_token_repo: RefreshTokenRepository = Depends(get_refresh_token_repository),
+    use_case: LogoutUseCase = Depends(get_logout_use_case),
 ) -> Response:
-    use_case = LogoutUseCase(refresh_token_repo, token_service)
     await use_case.execute(LogoutInput(refresh_token=body.refresh_token))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -149,12 +126,8 @@ async def logout(
 async def forgot_password(
     request: Request,
     body: ForgotPasswordRequest,
-    user_repo: UserRepository = Depends(get_user_repository),
-    reset_token_repo: PasswordResetTokenRepository = Depends(get_password_reset_token_repository),
-    email_sender: EmailSender = Depends(get_email_sender),
-    token_service: TokenService = Depends(get_token_service),
+    use_case: RequestPasswordResetUseCase = Depends(get_forgot_password_use_case),
 ) -> Response:
-    use_case = RequestPasswordResetUseCase(user_repo, reset_token_repo, email_sender, token_service)
     await use_case.execute(RequestPasswordResetInput(email=body.email))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -172,11 +145,7 @@ async def forgot_password(
 async def reset_password(
     request: Request,
     body: ResetPasswordRequest,
-    user_repo: UserRepository = Depends(get_user_repository),
-    reset_token_repo: PasswordResetTokenRepository = Depends(get_password_reset_token_repository),
-    token_service: TokenService = Depends(get_token_service),
-    password_hasher: PasswordHasher = Depends(get_password_hasher),
+    use_case: ResetPasswordUseCase = Depends(get_reset_password_use_case),
 ) -> Response:
-    use_case = ResetPasswordUseCase(user_repo, reset_token_repo, token_service, password_hasher)
     await use_case.execute(ResetPasswordInput(token=body.token, new_password=body.new_password))
     return Response(status_code=status.HTTP_204_NO_CONTENT)

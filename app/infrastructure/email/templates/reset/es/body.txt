@@ -1,0 +1,7 @@
+Has solicitado restablecer la contraseña de tu cuenta Jinbocho.
+
+Haz clic en el enlace a continuación para establecer una nueva contraseña (válido 15 minutos):
+
+{{ link }}
+
+Si no realizaste esta solicitud, puedes ignorar este correo.

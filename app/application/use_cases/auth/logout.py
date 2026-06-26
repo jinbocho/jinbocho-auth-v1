@@ -1,7 +1,10 @@
+import logging
 from dataclasses import dataclass
 
 from app.application.services import TokenService
 from app.domain.repositories import RefreshTokenRepository
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -17,3 +20,4 @@ class LogoutUseCase:
     async def execute(self, input: LogoutInput) -> None:
         token_hash = self._token_service.hash_token(input.refresh_token)
         await self._refresh_token_repo.revoke(token_hash)
+        logger.debug("Refresh token revoked (hash prefix: %s…)", token_hash[:8])

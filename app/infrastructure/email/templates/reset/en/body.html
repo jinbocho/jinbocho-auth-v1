@@ -1,0 +1,26 @@
+{% extends "_base.html" %}
+{% block preheader %}Password reset requested for your Jinbocho account — link valid 15 minutes.{% endblock %}
+{% block content %}
+<h2 class="email-title">Reset your password</h2>
+<p class="email-meta">Security &middot; Password Reset</p>
+<p class="email-text">
+  We received a request to reset the password for your Jinbocho account.
+  Click the button below to choose a new one.
+</p>
+<p class="email-note">
+  This link expires in <strong>15 minutes</strong>.
+  If you didn&rsquo;t request a password reset, you can safely ignore this email &mdash; your account remains secure.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" class="cta-table">
+  <tr>
+    <td class="cta-cell">
+      <a href="{{ link }}" class="cta-link">Reset my password</a>
+    </td>
+  </tr>
+</table>
+<p class="fallback-block">
+  Or copy this link into your browser:<br />
+  <a href="{{ link }}" class="fallback-link">{{ link }}</a>
+</p>
+{% endblock %}
+{% block footer_text %}Home Library Management{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "_base.html" %}
+{% block preheader %}Reset della password richiesto per il tuo account Jinbocho — link valido 15 minuti.{% endblock %}
+{% block content %}
+<h2 class="email-title">Reimposta la tua password</h2>
+<p class="email-meta">Sicurezza &middot; Reset Password</p>
+<p class="email-text">
+  Abbiamo ricevuto una richiesta di reset della password per il tuo account Jinbocho.
+  Clicca il pulsante qui sotto per sceglierne una nuova.
+</p>
+<p class="email-note">
+  Questo link scade tra <strong>15 minuti</strong>.
+  Se non hai richiesto il reset della password, puoi ignorare questa email &mdash; il tuo account rimane al sicuro.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" class="cta-table">
+  <tr>
+    <td class="cta-cell">
+      <a href="{{ link }}" class="cta-link">Reimposta la password</a>
+    </td>
+  </tr>
+</table>
+<p class="fallback-block">
+  Oppure copia questo link nel browser:<br />
+  <a href="{{ link }}" class="fallback-link">{{ link }}</a>
+</p>
+{% endblock %}
+{% block footer_text %}Gestione della biblioteca di casa{% endblock %}

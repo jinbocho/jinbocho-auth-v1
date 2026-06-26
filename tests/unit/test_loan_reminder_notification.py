@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from app.application.use_cases.notifications import NotifyLoanReminderInput, NotifyLoanReminderUseCase
-from app.domain.entities import User
+from app.domain.entities import User, UserRole
 
 
 def _make_user(family_id, role, is_active=True, email="x@example.com", language=None) -> User:
@@ -11,7 +11,7 @@ def _make_user(family_id, role, is_active=True, email="x@example.com", language=
         email=email,
         password_hash="hashed",
         full_name="Test User",
-        role=role,
+        role=UserRole(role),
         is_active=is_active,
         language=language,
     )

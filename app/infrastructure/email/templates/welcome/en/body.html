@@ -1,0 +1,25 @@
+{% extends "_base.html" %}
+{% block preheader %}Welcome to Jinbocho — your family library is ready.{% endblock %}
+{% block content %}
+<h2 class="email-title">Your library is ready</h2>
+<p class="email-meta">Onboarding &middot; Welcome</p>
+<p class="email-text">
+  Welcome to Jinbocho! Your family <strong>&#x201C;{{ family_name }}&#x201D;</strong> has been created.
+  You can now log in and start cataloging your home library, room by room, bookcase by bookcase.
+</p>
+<p class="email-note">
+  Scan ISBNs, organize books by location, track loans and reading status &mdash; everything in one place for your family.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" class="cta-table">
+  <tr>
+    <td class="cta-cell">
+      <a href="{{ link }}" class="cta-link">Open Jinbocho</a>
+    </td>
+  </tr>
+</table>
+<p class="fallback-block">
+  Or copy this link into your browser:<br />
+  <a href="{{ link }}" class="fallback-link">{{ link }}</a>
+</p>
+{% endblock %}
+{% block footer_text %}Home Library Management{% endblock %}

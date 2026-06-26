@@ -1,0 +1,7 @@
+Bienvenue sur Jinbocho ! Votre famille « {{ family_name }} » a été créée.
+
+Vous pouvez maintenant vous connecter et commencer à cataloguer votre bibliothèque :
+
+{{ link }}
+
+Bonne lecture !

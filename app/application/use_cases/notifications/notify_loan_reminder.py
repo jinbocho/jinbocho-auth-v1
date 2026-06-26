@@ -3,7 +3,7 @@ from datetime import datetime
 from uuid import UUID
 
 from app.domain.repositories import UserRepository
-from app.infrastructure.email import EmailSender
+from app.application.ports import EmailService
 
 _NOTIFIABLE_ROLES = ("admin", "editor")
 
@@ -22,7 +22,7 @@ class NotifyLoanReminderUseCase:
     The borrower is external (just a name, no account) — there's no one else
     to notify. A family with no admin/editor members is a silent no-op."""
 
-    def __init__(self, user_repo: UserRepository, email_sender: EmailSender) -> None:
+    def __init__(self, user_repo: UserRepository, email_sender: EmailService) -> None:
         self._user_repo = user_repo
         self._email_sender = email_sender
 
@@ -36,5 +36,5 @@ class NotifyLoanReminderUseCase:
                 book_title=input.book_title,
                 borrower_name=input.borrower_name,
                 due_date=input.due_date,
-                language=user.language,
+                language=user.language.value if user.language else None,
             )

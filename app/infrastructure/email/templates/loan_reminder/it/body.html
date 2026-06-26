@@ -1,0 +1,22 @@
+{% extends "_base.html" %}
+{% block preheader %}Promemoria: "{{ book_title }}" prestato a {{ borrower_name }} scade il {{ due_date }}.{% endblock %}
+{% block content %}
+<h2 class="email-title">Promemoria prestito</h2>
+<p class="email-meta">Biblioteca &middot; Scadenza Imminente</p>
+<p class="email-text">
+  Uno dei libri che hai prestato sta per scadere. Potrebbe essere il momento di contattare il destinatario.
+</p>
+<div class="info-card">
+  <span class="info-label">Libro</span>
+  <span class="info-value">{{ book_title }}</span>
+</div>
+<div class="info-card">
+  <span class="info-label">Prestato a</span>
+  <span class="info-value">{{ borrower_name }}</span>
+</div>
+<div class="info-card">
+  <span class="info-label">Scadenza</span>
+  <span class="info-value due-date-value">{{ due_date }}</span>
+</div>
+{% endblock %}
+{% block footer_text %}Gestione della biblioteca di casa{% endblock %}

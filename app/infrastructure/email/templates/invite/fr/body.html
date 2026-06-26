@@ -1,0 +1,26 @@
+{% extends "_base.html" %}
+{% block preheader %}Votre compte Jinbocho est prêt — définissez votre mot de passe pour commencer.{% endblock %}
+{% block content %}
+<h2 class="email-title">Vous avez été invité sur Jinbocho</h2>
+<p class="email-meta">Compte &middot; Invitation</p>
+<p class="email-text">
+  Un compte a été créé pour vous sur Jinbocho, le système de gestion de votre bibliothèque familiale.
+  Cliquez sur le bouton ci-dessous pour définir votre mot de passe et commencer à organiser votre collection.
+</p>
+<p class="email-note">
+  Ce lien d&rsquo;invitation est valable <strong>7 jours</strong>.
+  Si vous ne vous attendiez pas à cet e-mail, vous pouvez l&rsquo;ignorer sans problème.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" class="cta-table">
+  <tr>
+    <td class="cta-cell">
+      <a href="{{ link }}" class="cta-link">Définir mon mot de passe</a>
+    </td>
+  </tr>
+</table>
+<p class="fallback-block">
+  Ou copiez ce lien dans votre navigateur&nbsp;:<br />
+  <a href="{{ link }}" class="fallback-link">{{ link }}</a>
+</p>
+{% endblock %}
+{% block footer_text %}Gestion de votre bibliothèque familiale{% endblock %}

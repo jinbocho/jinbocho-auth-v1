@@ -1,7 +1,6 @@
 import pytest
 from uuid import uuid4
 
-from app.application.services import TokenService
 from app.application.use_cases.auth import (
     RequestPasswordResetInput,
     RequestPasswordResetUseCase,
@@ -9,22 +8,21 @@ from app.application.use_cases.auth import (
     ResetPasswordUseCase,
 )
 from app.application.use_cases.users import CreateUserInput, CreateUserUseCase
-from app.config import settings
-from app.domain.entities import User
+from app.domain.entities import User, UserRole
 
 
 @pytest.mark.asyncio
 async def test_create_user_does_not_take_a_password(
-    mock_user_repo, mock_password_reset_token_repo, fake_email_sender, password_hasher
+    mock_user_repo, mock_password_reset_token_repo, fake_email_sender, password_hasher, token_service
 ):
     """Inviting a user must not let the admin pick their password."""
-    token_service = TokenService(settings)
     use_case = CreateUserUseCase(
-        mock_user_repo, mock_password_reset_token_repo, fake_email_sender, token_service, password_hasher
+        mock_user_repo, mock_password_reset_token_repo, fake_email_sender, token_service, password_hasher,
+        invite_expire_minutes=10080, frontend_base_url="http://localhost:5173",
     )
 
     result = await use_case.execute(
-        CreateUserInput(family_id=uuid4(), email="newbie@example.com", full_name="New Bie", role="viewer")
+        CreateUserInput(family_id=uuid4(), email="newbie@example.com", full_name="New Bie", role=UserRole.VIEWER)
     )
 
     saved = await mock_user_repo.find_by_id(result.id)
@@ -35,15 +33,15 @@ async def test_create_user_does_not_take_a_password(
 
 @pytest.mark.asyncio
 async def test_create_user_sends_invite_email_with_setup_link(
-    mock_user_repo, mock_password_reset_token_repo, fake_email_sender, password_hasher
+    mock_user_repo, mock_password_reset_token_repo, fake_email_sender, password_hasher, token_service
 ):
-    token_service = TokenService(settings)
     use_case = CreateUserUseCase(
-        mock_user_repo, mock_password_reset_token_repo, fake_email_sender, token_service, password_hasher
+        mock_user_repo, mock_password_reset_token_repo, fake_email_sender, token_service, password_hasher,
+        invite_expire_minutes=10080, frontend_base_url="http://localhost:5173",
     )
 
     await use_case.execute(
-        CreateUserInput(family_id=uuid4(), email="newbie@example.com", full_name="New Bie", role="viewer")
+        CreateUserInput(family_id=uuid4(), email="newbie@example.com", full_name="New Bie", role=UserRole.VIEWER)
     )
 
     assert len(fake_email_sender.sent) == 1
@@ -60,16 +58,16 @@ async def test_create_user_sends_invite_email_with_setup_link(
 
 @pytest.mark.asyncio
 async def test_invited_user_can_set_password_via_the_link(
-    mock_user_repo, mock_password_reset_token_repo, fake_email_sender, password_hasher
+    mock_user_repo, mock_password_reset_token_repo, fake_email_sender, password_hasher, token_service
 ):
     """End-to-end: invite issues a token, and that same token (generic
     reset-password flow) lets the invitee set their first password."""
-    token_service = TokenService(settings)
     create_use_case = CreateUserUseCase(
-        mock_user_repo, mock_password_reset_token_repo, fake_email_sender, token_service, password_hasher
+        mock_user_repo, mock_password_reset_token_repo, fake_email_sender, token_service, password_hasher,
+        invite_expire_minutes=10080, frontend_base_url="http://localhost:5173",
     )
     await create_use_case.execute(
-        CreateUserInput(family_id=uuid4(), email="newbie@example.com", full_name="New Bie", role="viewer")
+        CreateUserInput(family_id=uuid4(), email="newbie@example.com", full_name="New Bie", role=UserRole.VIEWER)
     )
 
     token = next(iter(mock_password_reset_token_repo.tokens.values()))
@@ -92,7 +90,7 @@ async def test_invited_user_can_set_password_via_the_link(
 
 @pytest.mark.asyncio
 async def test_request_password_reset_still_works_for_existing_user(
-    mock_user_repo, mock_password_reset_token_repo, fake_email_sender, password_hasher
+    mock_user_repo, mock_password_reset_token_repo, fake_email_sender, password_hasher, token_service
 ):
     """Regression: generalizing the email sender / token issuing must not
     break the original forgot-password flow."""
@@ -101,13 +99,13 @@ async def test_request_password_reset_still_works_for_existing_user(
         email="existing@example.com",
         password_hash=password_hasher.hash("OldPassword123"),
         full_name="Existing User",
-        role="admin",
+        role=UserRole.ADMIN,
     )
     await mock_user_repo.save(user)
 
-    token_service = TokenService(settings)
     use_case = RequestPasswordResetUseCase(
-        mock_user_repo, mock_password_reset_token_repo, fake_email_sender, token_service
+        mock_user_repo, mock_password_reset_token_repo, fake_email_sender, token_service,
+        password_reset_expire_minutes=15, frontend_base_url="http://localhost:5173",
     )
     await use_case.execute(RequestPasswordResetInput(email=user.email))
 

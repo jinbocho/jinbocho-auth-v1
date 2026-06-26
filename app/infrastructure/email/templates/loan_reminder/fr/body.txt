@@ -1,0 +1,3 @@
+« {{ book_title }} », prêté à {{ borrower_name }}, doit être rendu le {{ due_date }}.
+
+Vous voudrez peut-être le lui rappeler.

@@ -1,0 +1,22 @@
+{% extends "_base.html" %}
+{% block preheader %}Reminder: "{{ book_title }}" lent to {{ borrower_name }} is due back on {{ due_date }}.{% endblock %}
+{% block content %}
+<h2 class="email-title">Loan reminder</h2>
+<p class="email-meta">Library &middot; Loan Due Soon</p>
+<p class="email-text">
+  One of your loaned books is due back soon. You may want to follow up with the borrower.
+</p>
+<div class="info-card">
+  <span class="info-label">Book</span>
+  <span class="info-value">{{ book_title }}</span>
+</div>
+<div class="info-card">
+  <span class="info-label">Lent to</span>
+  <span class="info-value">{{ borrower_name }}</span>
+</div>
+<div class="info-card">
+  <span class="info-label">Due date</span>
+  <span class="info-value due-date-value">{{ due_date }}</span>
+</div>
+{% endblock %}
+{% block footer_text %}Home Library Management{% endblock %}

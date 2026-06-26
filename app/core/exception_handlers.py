@@ -23,6 +23,7 @@ from app.domain.exceptions import (
     IncorrectPasswordError,
     InvalidCredentialsError,
     InvalidResetTokenError,
+    LastAdminError,
 )
 
 
@@ -36,10 +37,22 @@ def _make_handler(
     return handler
 
 
+def _handle_integrity_error(request: Request, exc: Exception) -> JSONResponse:
+    msg = str(exc).lower()
+    if "unique" in msg and "email" in msg:
+        detail = "Email already registered"
+    else:
+        detail = "Database constraint violation"
+    return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"detail": detail})
+
+
 def configure_exception_handlers(app: FastAPI) -> None:
-    """Register one handler per domain exception, plus a fallback for the
-    builtin LookupError/PermissionError/ValueError families in case a use
-    case raises the bare type instead of one of the semantic subclasses."""
+    """Register one handler per domain exception. Every concrete exception
+    raised by the domain/application layer must appear here explicitly —
+    broad built-in base-class handlers (LookupError, ValueError, …) are
+    intentionally avoided because they catch unrelated infrastructure errors
+    (e.g. jinja2.TemplateNotFound is a LookupError subclass and would
+    incorrectly produce HTTP 404 for a missing email template)."""
     # slowapi's handler is typed for RateLimitExceeded specifically, which mypy
     # treats as incompatible with the broader Callable[[Request, Exception], ...]
     # that add_exception_handler expects (parameter contravariance).
@@ -55,12 +68,7 @@ def configure_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ConfirmationMismatchError, _make_handler(status.HTTP_400_BAD_REQUEST))
     app.add_exception_handler(InvalidResetTokenError, _make_handler(status.HTTP_400_BAD_REQUEST))
     app.add_exception_handler(EmailAlreadyRegisteredError, _make_handler(status.HTTP_409_CONFLICT))
+    app.add_exception_handler(LastAdminError, _make_handler(status.HTTP_409_CONFLICT))
     # RegisterFamilyUseCase relies on the DB's unique constraint on email
     # instead of a pre-check, so the conflict surfaces as an IntegrityError.
-    app.add_exception_handler(
-        IntegrityError, _make_handler(status.HTTP_409_CONFLICT, detail="Email already registered")
-    )
-
-    app.add_exception_handler(LookupError, _make_handler(status.HTTP_404_NOT_FOUND))
-    app.add_exception_handler(PermissionError, _make_handler(status.HTTP_403_FORBIDDEN))
-    app.add_exception_handler(ValueError, _make_handler(status.HTTP_400_BAD_REQUEST))
+    app.add_exception_handler(IntegrityError, _handle_integrity_error)

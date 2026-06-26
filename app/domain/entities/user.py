@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
+from app.domain.entities.enums import Language, ThemeMode, ThemeName, UserRole
+
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -13,12 +15,12 @@ class User:
     email: str
     password_hash: str
     full_name: str
-    role: str
+    role: UserRole
     is_active: bool = True
     annual_reading_goal: int | None = None
-    language: str | None = None
-    theme_name: str | None = None
-    theme_mode: str | None = None
+    language: Language | None = None
+    theme_name: ThemeName | None = None
+    theme_mode: ThemeMode | None = None
     # None until the invitee (or the admin who created them) sets a real
     # password via the invite/reset link — the signal used to show "invite
     # pending" in the UI, since is_active is true from creation onward.

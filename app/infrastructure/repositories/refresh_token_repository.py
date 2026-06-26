@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities import RefreshToken
@@ -45,21 +45,17 @@ class SQLAlchemyRefreshTokenRepository(RefreshTokenRepository):
         return self._to_entity(model) if model else None
 
     async def revoke(self, token_hash: str) -> None:
-        result = await self._session.execute(
-            select(RefreshTokenModel).where(RefreshTokenModel.token_hash == token_hash)
+        await self._session.execute(
+            update(RefreshTokenModel)
+            .where(RefreshTokenModel.token_hash == token_hash)
+            .values(revoked_at=datetime.now(timezone.utc))
         )
-        model = result.scalar_one_or_none()
-        if model:
-            model.revoked_at = datetime.now(timezone.utc)
-            await self._session.flush()
+        await self._session.flush()
 
     async def cleanup_expired(self) -> int:
         now = datetime.now(timezone.utc)
         result = await self._session.execute(
-            select(RefreshTokenModel).where(RefreshTokenModel.expires_at < now)
+            delete(RefreshTokenModel).where(RefreshTokenModel.expires_at < now)
         )
-        models = result.scalars().all()
-        for model in models:
-            await self._session.delete(model)
         await self._session.flush()
-        return len(models)
+        return result.rowcount

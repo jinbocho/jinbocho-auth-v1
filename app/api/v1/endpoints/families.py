@@ -1,13 +1,14 @@
-from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies import (
+    JWTPayload,
+    get_confirm_family_deletion_use_case,
     get_current_user_payload,
-    get_family_repository,
-    get_password_hasher,
-    get_user_repository,
+    get_delete_family_use_case,
+    get_get_family_use_case,
+    get_update_family_use_case,
     require_role,
 )
 from app.api.v1.schemas.family_schemas import DeleteFamilyRequest, FamilyResponse, FamilyUpdate
@@ -15,14 +16,12 @@ from app.application.use_cases.families import (
     ConfirmFamilyDeletionUseCase,
     DeleteFamilyInput,
     DeleteFamilyUseCase,
-    GetFamilyUseCase,
     GetFamilyInput,
-    UpdateFamilyUseCase,
+    GetFamilyUseCase,
     UpdateFamilyInput,
+    UpdateFamilyUseCase,
     VerifyFamilyDeletionInput,
 )
-from app.domain.repositories import FamilyRepository, UserRepository
-from app.domain.services import PasswordHasher
 
 router = APIRouter()
 
@@ -35,10 +34,9 @@ router = APIRouter()
 )
 async def get_family(
     family_id: UUID,
-    payload: dict[str, Any] = Depends(get_current_user_payload),
-    family_repo: FamilyRepository = Depends(get_family_repository),
+    payload: JWTPayload = Depends(get_current_user_payload),
+    use_case: GetFamilyUseCase = Depends(get_get_family_use_case),
 ) -> FamilyResponse:
-    use_case = GetFamilyUseCase(family_repo)
     result = await use_case.execute(
         GetFamilyInput(family_id=family_id, requester_family_id=UUID(payload["family_id"]))
     )
@@ -54,10 +52,9 @@ async def get_family(
 async def update_family(
     family_id: UUID,
     request: FamilyUpdate,
-    payload: dict[str, Any] = Depends(require_role("admin")),
-    family_repo: FamilyRepository = Depends(get_family_repository),
+    payload: JWTPayload = Depends(require_role("admin")),
+    use_case: UpdateFamilyUseCase = Depends(get_update_family_use_case),
 ) -> FamilyResponse:
-    use_case = UpdateFamilyUseCase(family_repo)
     result = await use_case.execute(
         UpdateFamilyInput(
             family_id=family_id,
@@ -81,12 +78,9 @@ async def update_family(
 async def confirm_family_deletion(
     family_id: UUID,
     request: DeleteFamilyRequest,
-    payload: dict[str, Any] = Depends(require_role("admin")),
-    family_repo: FamilyRepository = Depends(get_family_repository),
-    user_repo: UserRepository = Depends(get_user_repository),
-    password_hasher: PasswordHasher = Depends(get_password_hasher),
+    payload: JWTPayload = Depends(require_role("admin")),
+    use_case: ConfirmFamilyDeletionUseCase = Depends(get_confirm_family_deletion_use_case),
 ) -> None:
-    use_case = ConfirmFamilyDeletionUseCase(family_repo, user_repo, password_hasher)
     await use_case.execute(
         VerifyFamilyDeletionInput(
             family_id=family_id,
@@ -112,12 +106,9 @@ async def confirm_family_deletion(
 async def delete_family(
     family_id: UUID,
     request: DeleteFamilyRequest,
-    payload: dict[str, Any] = Depends(require_role("admin")),
-    family_repo: FamilyRepository = Depends(get_family_repository),
-    user_repo: UserRepository = Depends(get_user_repository),
-    password_hasher: PasswordHasher = Depends(get_password_hasher),
+    payload: JWTPayload = Depends(require_role("admin")),
+    use_case: DeleteFamilyUseCase = Depends(get_delete_family_use_case),
 ) -> None:
-    use_case = DeleteFamilyUseCase(family_repo, user_repo, password_hasher)
     await use_case.execute(
         DeleteFamilyInput(
             family_id=family_id,

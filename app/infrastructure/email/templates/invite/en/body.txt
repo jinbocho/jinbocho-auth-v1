@@ -1,0 +1,7 @@
+An account has been created for you on Jinbocho.
+
+Click the link below to set your password and get started (valid for 7 days):
+
+{{ link }}
+
+If you weren't expecting this, you can safely ignore this email.

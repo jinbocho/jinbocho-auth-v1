@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies import get_email_sender, get_user_repository
 from app.api.v1.schemas.notification_schemas import LoanReminderRequest
+from app.application.ports import EmailService
 from app.application.use_cases.notifications import NotifyLoanReminderInput, NotifyLoanReminderUseCase
 from app.domain.repositories import UserRepository
-from app.infrastructure.email import EmailSender
 
 router = APIRouter()
 
@@ -21,7 +21,7 @@ router = APIRouter()
 async def notify_loan_reminder(
     request: LoanReminderRequest,
     user_repo: UserRepository = Depends(get_user_repository),
-    email_sender: EmailSender = Depends(get_email_sender),
+    email_sender: EmailService = Depends(get_email_sender),
 ) -> None:
     use_case = NotifyLoanReminderUseCase(user_repo, email_sender)
     await use_case.execute(

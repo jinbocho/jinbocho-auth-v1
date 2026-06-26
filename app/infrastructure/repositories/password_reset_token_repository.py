@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities import PasswordResetToken
@@ -48,13 +48,23 @@ class SQLAlchemyPasswordResetTokenRepository(PasswordResetTokenRepository):
         return self._to_entity(model) if model else None
 
     async def mark_used(self, token_id: UUID, used_at: datetime) -> None:
-        result = await self._session.execute(
-            select(PasswordResetTokenModel).where(PasswordResetTokenModel.id == token_id)
+        await self._session.execute(
+            update(PasswordResetTokenModel)
+            .where(PasswordResetTokenModel.id == token_id)
+            .values(used_at=used_at)
         )
-        model = result.scalar_one_or_none()
-        if model:
-            model.used_at = used_at
-            await self._session.flush()
+        await self._session.flush()
+
+    async def cleanup_expired(self) -> int:
+        now = datetime.now(timezone.utc)
+        result = await self._session.execute(
+            delete(PasswordResetTokenModel).where(
+                (PasswordResetTokenModel.expires_at < now)
+                | PasswordResetTokenModel.used_at.is_not(None)
+            )
+        )
+        await self._session.flush()
+        return result.rowcount
 
     async def invalidate_pending(self, user_id: UUID, purpose: str, used_at: datetime) -> None:
         await self._session.execute(

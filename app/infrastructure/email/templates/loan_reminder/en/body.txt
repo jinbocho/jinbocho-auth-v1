@@ -1,0 +1,3 @@
+"{{ book_title }}", lent to {{ borrower_name }}, is due back on {{ due_date }}.
+
+You might want to follow up with them.

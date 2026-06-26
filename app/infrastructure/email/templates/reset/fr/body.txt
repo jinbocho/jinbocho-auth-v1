@@ -1,0 +1,7 @@
+Vous avez demandé la réinitialisation du mot de passe de votre compte Jinbocho.
+
+Cliquez sur le lien ci-dessous pour définir un nouveau mot de passe (valable 15 minutes) :
+
+{{ link }}
+
+Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.

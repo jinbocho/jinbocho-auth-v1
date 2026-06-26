@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     smtp_timeout_seconds: int = 10
     email_from: str = "noreply@jinbocho.local"
 
+    # Scheduled maintenance
+    token_cleanup_interval_hours: int = 1
+
     # Shared secret for service-to-service calls (e.g. catalog-service asking
     # us to send a loan-reminder email) — these don't carry a user JWT.
     internal_service_token: str = ""

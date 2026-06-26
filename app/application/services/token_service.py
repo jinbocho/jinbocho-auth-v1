@@ -45,6 +45,10 @@ class TokenService:
         if token.revoked_at is not None:
             raise InvalidCredentialsError("Token revoked")
 
+    @property
+    def refresh_token_expire_days(self) -> int:
+        return self._settings.refresh_token_expire_days
+
     @staticmethod
     def utcnow() -> datetime:
         """Get current UTC time."""

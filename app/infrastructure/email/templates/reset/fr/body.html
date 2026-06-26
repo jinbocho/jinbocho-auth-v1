@@ -1,0 +1,26 @@
+{% extends "_base.html" %}
+{% block preheader %}Demande de réinitialisation de mot de passe pour votre compte Jinbocho — lien valable 15 minutes.{% endblock %}
+{% block content %}
+<h2 class="email-title">Réinitialisez votre mot de passe</h2>
+<p class="email-meta">Sécurité &middot; Réinitialisation du Mot de Passe</p>
+<p class="email-text">
+  Nous avons reçu une demande de réinitialisation du mot de passe de votre compte Jinbocho.
+  Cliquez sur le bouton ci-dessous pour en choisir un nouveau.
+</p>
+<p class="email-note">
+  Ce lien expire dans <strong>15 minutes</strong>.
+  Si vous n&rsquo;avez pas demandé de réinitialisation, ignorez cet e-mail &mdash; votre compte reste sécurisé.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" class="cta-table">
+  <tr>
+    <td class="cta-cell">
+      <a href="{{ link }}" class="cta-link">Réinitialiser mon mot de passe</a>
+    </td>
+  </tr>
+</table>
+<p class="fallback-block">
+  Ou copiez ce lien dans votre navigateur&nbsp;:<br />
+  <a href="{{ link }}" class="fallback-link">{{ link }}</a>
+</p>
+{% endblock %}
+{% block footer_text %}Gestion de votre bibliothèque familiale{% endblock %}

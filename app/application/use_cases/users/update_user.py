@@ -1,9 +1,13 @@
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
+from app.domain.entities.enums import Language, ThemeMode, ThemeName, UserRole
 from app.domain.exceptions import EntityNotFoundError, LastAdminError
 from app.domain.repositories import UserRepository
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -11,16 +15,16 @@ class UpdateUserInput:
     user_id: UUID
     requester_family_id: UUID
     full_name: str | None = None
-    role: str | None = None
+    role: UserRole | None = None
     is_active: bool | None = None
     # For annual_reading_goal: None can mean "no goal" (a valid value) or "not provided".
     # set_annual_reading_goal=True means the caller explicitly wants to apply the value
     # (even if it's None, which clears the goal). False means "leave unchanged".
     annual_reading_goal: int | None = None
     set_annual_reading_goal: bool = False
-    language: str | None = None
-    theme_name: str | None = None
-    theme_mode: str | None = None
+    language: Language | None = None
+    theme_name: ThemeName | None = None
+    theme_mode: ThemeMode | None = None
 
 
 @dataclass
@@ -29,12 +33,12 @@ class UpdateUserOutput:
     family_id: UUID
     email: str
     full_name: str
-    role: str
+    role: UserRole
     is_active: bool
     annual_reading_goal: int | None = None
-    language: str | None = None
-    theme_name: str | None = None
-    theme_mode: str | None = None
+    language: Language | None = None
+    theme_name: ThemeName | None = None
+    theme_mode: ThemeMode | None = None
     password_set_at: datetime | None = None
 
 
@@ -47,12 +51,12 @@ class UpdateUserUseCase:
         if not user or user.family_id != input.requester_family_id:
             raise EntityNotFoundError("User not found")
 
-        demoting_admin = input.role is not None and input.role != "admin"
+        demoting_admin = input.role is not None and input.role != UserRole.ADMIN
         deactivating = input.is_active is False
-        if user.role == "admin" and user.is_active and (demoting_admin or deactivating):
+        if user.role == UserRole.ADMIN and user.is_active and (demoting_admin or deactivating):
             family = await self._user_repo.find_by_family(user.family_id)
             other_active_admins = any(
-                u.id != user.id and u.role == "admin" and u.is_active for u in family
+                u.id != user.id and u.role == UserRole.ADMIN and u.is_active for u in family
             )
             if not other_active_admins:
                 raise LastAdminError("Cannot remove the family's last active admin")
@@ -73,6 +77,7 @@ class UpdateUserUseCase:
             user.theme_mode = input.theme_mode
 
         updated_user = await self._user_repo.save(user)
+        logger.info("User %s updated by family %s", input.user_id, input.requester_family_id)
         return UpdateUserOutput(
             id=updated_user.id,
             family_id=updated_user.family_id,

@@ -1,0 +1,3 @@
+"{{ book_title }}", prestado a {{ borrower_name }}, vence el {{ due_date }}.
+
+Quizás quieras pedirle que lo devuelva.

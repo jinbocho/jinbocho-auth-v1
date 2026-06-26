@@ -4,8 +4,18 @@ import socket
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from pathlib import Path
+
+from app.infrastructure.email.template_renderer import EmailTemplateRenderer
 
 logger = logging.getLogger(__name__)
+
+_TEMPLATE_DIR = Path(__file__).parent / "templates"
+
+# Two purposes share the same mechanics (token link, single-use, expires) but
+# need different copy: "reset" is a password the user already had; "invite"
+# is the first password for an account an admin just created for them.
+_LINK_PURPOSES = frozenset(("reset", "invite"))
 
 
 class _IPv4SMTP(smtplib.SMTP):
@@ -30,244 +40,6 @@ class _IPv4SMTP(smtplib.SMTP):
         sock.connect(sockaddr)
         return sock
 
-# Two purposes share the same mechanics (token link, single-use, expires) but
-# need different copy: "reset" is a password the user already had; "invite"
-# is the first password for an account an admin just created for them.
-_TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
-    "reset": {
-        "en": {
-            "subject": "Reset your Jinbocho password",
-            "body_text": (
-                "You requested a password reset for your Jinbocho account.\n\n"
-                "Click the link below to set a new password (valid for 15 minutes):\n\n"
-                "{link}\n\n"
-                "If you didn't request this, you can safely ignore this email."
-            ),
-            "body_html": (
-                "<p>You requested a password reset for your Jinbocho account.</p>"
-                "<p>Click the link below to set a new password (valid for 15 minutes):</p>"
-                '<p><a href="{link}">{link}</a></p>'
-                "<p>If you didn't request this, you can safely ignore this email.</p>"
-            ),
-        },
-        "it": {
-            "subject": "Reimposta la tua password Jinbocho",
-            "body_text": (
-                "Hai richiesto il reset della password per il tuo account Jinbocho.\n\n"
-                "Clicca il link qui sotto per impostare una nuova password (valido 15 minuti):\n\n"
-                "{link}\n\n"
-                "Se non hai fatto questa richiesta, puoi ignorare questa email."
-            ),
-            "body_html": (
-                "<p>Hai richiesto il reset della password per il tuo account Jinbocho.</p>"
-                "<p>Clicca il link qui sotto per impostare una nuova password (valido 15 minuti):</p>"
-                '<p><a href="{link}">{link}</a></p>'
-                "<p>Se non hai fatto questa richiesta, puoi ignorare questa email.</p>"
-            ),
-        },
-        "es": {
-            "subject": "Restablece tu contraseña de Jinbocho",
-            "body_text": (
-                "Has solicitado restablecer la contraseña de tu cuenta Jinbocho.\n\n"
-                "Haz clic en el enlace a continuación para establecer una nueva contraseña (válido 15 minutos):\n\n"
-                "{link}\n\n"
-                "Si no realizaste esta solicitud, puedes ignorar este correo."
-            ),
-            "body_html": (
-                "<p>Has solicitado restablecer la contraseña de tu cuenta Jinbocho.</p>"
-                "<p>Haz clic en el enlace a continuación para establecer una nueva contraseña (válido 15 minutos):</p>"
-                '<p><a href="{link}">{link}</a></p>'
-                "<p>Si no realizaste esta solicitud, puedes ignorar este correo.</p>"
-            ),
-        },
-        "fr": {
-            "subject": "Réinitialisez votre mot de passe Jinbocho",
-            "body_text": (
-                "Vous avez demandé la réinitialisation du mot de passe de votre compte Jinbocho.\n\n"
-                "Cliquez sur le lien ci-dessous pour définir un nouveau mot de passe (valable 15 minutes) :\n\n"
-                "{link}\n\n"
-                "Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail."
-            ),
-            "body_html": (
-                "<p>Vous avez demandé la réinitialisation du mot de passe de votre compte Jinbocho.</p>"
-                "<p>Cliquez sur le lien ci-dessous pour définir un nouveau mot de passe (valable 15 minutes) :</p>"
-                '<p><a href="{link}">{link}</a></p>'
-                "<p>Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.</p>"
-            ),
-        },
-    },
-    "welcome": {
-        "en": {
-            "subject": "Welcome to Jinbocho!",
-            "body_text": (
-                'Welcome to Jinbocho! Your family "{family_name}" has been created.\n\n'
-                "You can now log in and start cataloging your home library:\n\n"
-                "{link}\n\n"
-                "Happy reading!"
-            ),
-            "body_html": (
-                '<p>Welcome to Jinbocho! Your family "{family_name}" has been created.</p>'
-                "<p>You can now log in and start cataloging your home library:</p>"
-                '<p><a href="{link}">{link}</a></p>'
-                "<p>Happy reading!</p>"
-            ),
-        },
-        "it": {
-            "subject": "Benvenuto su Jinbocho!",
-            "body_text": (
-                'Benvenuto su Jinbocho! La tua famiglia "{family_name}" è stata creata.\n\n'
-                "Puoi accedere e iniziare a catalogare la tua libreria domestica:\n\n"
-                "{link}\n\n"
-                "Buona lettura!"
-            ),
-            "body_html": (
-                '<p>Benvenuto su Jinbocho! La tua famiglia "{family_name}" è stata creata.</p>'
-                "<p>Puoi accedere e iniziare a catalogare la tua libreria domestica:</p>"
-                '<p><a href="{link}">{link}</a></p>'
-                "<p>Buona lettura!</p>"
-            ),
-        },
-        "es": {
-            "subject": "¡Bienvenido a Jinbocho!",
-            "body_text": (
-                '¡Bienvenido a Jinbocho! Tu familia "{family_name}" ha sido creada.\n\n'
-                "Ya puedes iniciar sesión y empezar a catalogar tu biblioteca:\n\n"
-                "{link}\n\n"
-                "¡Feliz lectura!"
-            ),
-            "body_html": (
-                '<p>¡Bienvenido a Jinbocho! Tu familia "{family_name}" ha sido creada.</p>'
-                "<p>Ya puedes iniciar sesión y empezar a catalogar tu biblioteca:</p>"
-                '<p><a href="{link}">{link}</a></p>'
-                "<p>¡Feliz lectura!</p>"
-            ),
-        },
-        "fr": {
-            "subject": "Bienvenue sur Jinbocho !",
-            "body_text": (
-                'Bienvenue sur Jinbocho ! Votre famille « {family_name} » a été créée.\n\n'
-                "Vous pouvez maintenant vous connecter et commencer à cataloguer votre bibliothèque :\n\n"
-                "{link}\n\n"
-                "Bonne lecture !"
-            ),
-            "body_html": (
-                '<p>Bienvenue sur Jinbocho ! Votre famille « {family_name} » a été créée.</p>'
-                "<p>Vous pouvez maintenant vous connecter et commencer à cataloguer votre bibliothèque :</p>"
-                '<p><a href="{link}">{link}</a></p>'
-                "<p>Bonne lecture !</p>"
-            ),
-        },
-    },
-    "invite": {
-        "en": {
-            "subject": "Welcome to Jinbocho — set your password",
-            "body_text": (
-                "An account has been created for you on Jinbocho.\n\n"
-                "Click the link below to set your password and get started (valid for 7 days):\n\n"
-                "{link}\n\n"
-                "If you weren't expecting this, you can safely ignore this email."
-            ),
-            "body_html": (
-                "<p>An account has been created for you on Jinbocho.</p>"
-                "<p>Click the link below to set your password and get started (valid for 7 days):</p>"
-                '<p><a href="{link}">{link}</a></p>'
-                "<p>If you weren't expecting this, you can safely ignore this email.</p>"
-            ),
-        },
-        "it": {
-            "subject": "Benvenuto su Jinbocho — imposta la tua password",
-            "body_text": (
-                "È stato creato un account per te su Jinbocho.\n\n"
-                "Clicca il link qui sotto per impostare la tua password e iniziare (valido 7 giorni):\n\n"
-                "{link}\n\n"
-                "Se non ti aspettavi questa email, puoi ignorarla."
-            ),
-            "body_html": (
-                "<p>È stato creato un account per te su Jinbocho.</p>"
-                "<p>Clicca il link qui sotto per impostare la tua password e iniziare (valido 7 giorni):</p>"
-                '<p><a href="{link}">{link}</a></p>'
-                "<p>Se non ti aspettavi questa email, puoi ignorarla.</p>"
-            ),
-        },
-        "es": {
-            "subject": "Bienvenido a Jinbocho — establece tu contraseña",
-            "body_text": (
-                "Se ha creado una cuenta para ti en Jinbocho.\n\n"
-                "Haz clic en el enlace a continuación para establecer tu contraseña y comenzar (válido 7 días):\n\n"
-                "{link}\n\n"
-                "Si no esperabas este correo, puedes ignorarlo."
-            ),
-            "body_html": (
-                "<p>Se ha creado una cuenta para ti en Jinbocho.</p>"
-                "<p>Haz clic en el enlace a continuación para establecer tu contraseña y comenzar (válido 7 días):</p>"
-                '<p><a href="{link}">{link}</a></p>'
-                "<p>Si no esperabas este correo, puedes ignorarlo.</p>"
-            ),
-        },
-        "fr": {
-            "subject": "Bienvenue sur Jinbocho — définissez votre mot de passe",
-            "body_text": (
-                "Un compte a été créé pour vous sur Jinbocho.\n\n"
-                "Cliquez sur le lien ci-dessous pour définir votre mot de passe et commencer (valable 7 jours) :\n\n"
-                "{link}\n\n"
-                "Si vous ne vous attendiez pas à cet e-mail, vous pouvez l'ignorer."
-            ),
-            "body_html": (
-                "<p>Un compte a été créé pour vous sur Jinbocho.</p>"
-                "<p>Cliquez sur le lien ci-dessous pour définir votre mot de passe et commencer (valable 7 jours) :</p>"
-                '<p><a href="{link}">{link}</a></p>'
-                "<p>Si vous ne vous attendiez pas à cet e-mail, vous pouvez l'ignorer.</p>"
-            ),
-        },
-    },
-    "loan_reminder": {
-        "en": {
-            "subject": "Reminder: a loaned book is due soon",
-            "body_text": (
-                '"{book_title}", lent to {borrower_name}, is due back on {due_date}.\n\n'
-                "You might want to follow up with them."
-            ),
-            "body_html": (
-                "<p>“{book_title}”, lent to {borrower_name}, is due back on {due_date}.</p>"
-                "<p>You might want to follow up with them.</p>"
-            ),
-        },
-        "it": {
-            "subject": "Promemoria: un libro prestato è quasi in scadenza",
-            "body_text": (
-                '"{book_title}", prestato a {borrower_name}, scade il {due_date}.\n\n'
-                "Potrebbe essere il momento di sollecitarne la restituzione."
-            ),
-            "body_html": (
-                "<p>“{book_title}”, prestato a {borrower_name}, scade il {due_date}.</p>"
-                "<p>Potrebbe essere il momento di sollecitarne la restituzione.</p>"
-            ),
-        },
-        "es": {
-            "subject": "Recordatorio: un libro prestado vence pronto",
-            "body_text": (
-                '"{book_title}", prestado a {borrower_name}, vence el {due_date}.\n\n'
-                "Quizás quieras pedirle que lo devuelva."
-            ),
-            "body_html": (
-                "<p>“{book_title}”, prestado a {borrower_name}, vence el {due_date}.</p>"
-                "<p>Quizás quieras pedirle que lo devuelva.</p>"
-            ),
-        },
-        "fr": {
-            "subject": "Rappel : un livre prêté arrive à échéance",
-            "body_text": (
-                '« {book_title} », prêté à {borrower_name}, doit être rendu le {due_date}.\n\n'
-                "Vous voudrez peut-être le lui rappeler."
-            ),
-            "body_html": (
-                "<p>« {book_title} », prêté à {borrower_name}, doit être rendu le {due_date}.</p>"
-                "<p>Vous voudrez peut-être le lui rappeler.</p>"
-            ),
-        },
-    },
-}
-
 
 class EmailSender:
     def __init__(
@@ -278,6 +50,7 @@ class EmailSender:
         password: str | None,
         from_address: str,
         timeout_seconds: int = 10,
+        renderer: EmailTemplateRenderer | None = None,
     ):
         self._host = host
         self._port = port
@@ -285,6 +58,7 @@ class EmailSender:
         self._password = password
         self._from = from_address
         self._timeout_seconds = timeout_seconds
+        self._renderer = renderer or EmailTemplateRenderer(_TEMPLATE_DIR)
 
     def send_password_setup_link(
         self,
@@ -299,14 +73,13 @@ class EmailSender:
         access) or "invite" (an admin created the account; this is the
         user's first password). Both share the same token/link mechanics.
         """
-        templates = _TEMPLATES.get(purpose, _TEMPLATES["reset"])
-        lang = language if language in templates else "en"
-        tmpl = templates[lang]
+        template = purpose if purpose in _LINK_PURPOSES else "reset"
+        email = self._renderer.render(template, language, {"link": link})
         self._send(
             to_email,
-            subject=tmpl["subject"],
-            body_text=tmpl["body_text"].format(link=link),
-            body_html=tmpl["body_html"].format(link=link),
+            subject=email.subject,
+            body_text=email.body_text,
+            body_html=email.body_html,
             log_context=f"{purpose} link",
             console_link=link,
         )
@@ -320,14 +93,14 @@ class EmailSender:
     ) -> None:
         """Notify the admin who just registered a new family — no token
         involved, the admin already chose their password during registration."""
-        templates = _TEMPLATES["welcome"]
-        lang = language if language in templates else "en"
-        tmpl = templates[lang]
+        email = self._renderer.render(
+            "welcome", language, {"family_name": family_name, "link": link}
+        )
         self._send(
             to_email,
-            subject=tmpl["subject"],
-            body_text=tmpl["body_text"].format(family_name=family_name, link=link),
-            body_html=tmpl["body_html"].format(family_name=family_name, link=link),
+            subject=email.subject,
+            body_text=email.body_text,
+            body_html=email.body_html,
             log_context="welcome email",
             console_link=link,
         )
@@ -342,19 +115,20 @@ class EmailSender:
     ) -> None:
         """Tell the family a book they lent out is due back soon. No
         token/link involved — this is informational, not actionable."""
-        templates = _TEMPLATES["loan_reminder"]
-        lang = language if language in templates else "en"
-        tmpl = templates[lang]
-        due_date_str = due_date.strftime("%Y-%m-%d")
+        email = self._renderer.render(
+            "loan_reminder",
+            language,
+            {
+                "book_title": book_title,
+                "borrower_name": borrower_name,
+                "due_date": due_date.strftime("%Y-%m-%d"),
+            },
+        )
         self._send(
             to_email,
-            subject=tmpl["subject"],
-            body_text=tmpl["body_text"].format(
-                book_title=book_title, borrower_name=borrower_name, due_date=due_date_str
-            ),
-            body_html=tmpl["body_html"].format(
-                book_title=book_title, borrower_name=borrower_name, due_date=due_date_str
-            ),
+            subject=email.subject,
+            body_text=email.body_text,
+            body_html=email.body_html,
             log_context="loan reminder",
             console_link="",
         )

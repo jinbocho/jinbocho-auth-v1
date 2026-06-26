@@ -7,7 +7,7 @@ from app.application.use_cases.users import (
     UpdateUserInput,
     UpdateUserUseCase,
 )
-from app.domain.entities import User
+from app.domain.entities import User, UserRole
 from app.domain.exceptions import LastAdminError
 
 
@@ -16,8 +16,8 @@ async def _make_user(mock_user_repo, family_id, role, *, is_active=True):
         family_id=family_id,
         email=f"{role}-{uuid4()}@example.com",
         password_hash="hash",
-        full_name=role.title(),
-        role=role,
+        full_name=role.title() if isinstance(role, str) else role.value.title(),
+        role=UserRole(role),
         is_active=is_active,
     )
     return await mock_user_repo.save(user)

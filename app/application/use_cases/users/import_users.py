@@ -1,9 +1,13 @@
+import logging
 from dataclasses import dataclass, field
 from uuid import UUID
 
 from app.application.use_cases.users.create_user import CreateUserInput, CreateUserUseCase
 from app.application.use_cases.users.update_user import UpdateUserInput, UpdateUserUseCase
+from app.domain.entities.enums import Language, ThemeMode, ThemeName, UserRole
 from app.domain.repositories import UserRepository
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -11,12 +15,12 @@ class ImportUserItem:
     id: UUID
     email: str
     full_name: str
-    role: str
+    role: UserRole
     is_active: bool = True
     annual_reading_goal: int | None = None
-    language: str | None = None
-    theme_name: str | None = None
-    theme_mode: str | None = None
+    language: Language | None = None
+    theme_name: ThemeName | None = None
+    theme_mode: ThemeMode | None = None
 
 
 @dataclass
@@ -98,4 +102,8 @@ class ImportUsersUseCase:
             user_id_map[item.id] = new_user.id
             created += 1
 
+        logger.info(
+            "Import for family %s: %d created, %d matched",
+            input.family_id, created, matched,
+        )
         return ImportUsersOutput(user_id_map=user_id_map, created=created, matched=matched)

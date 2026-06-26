@@ -1,0 +1,3 @@
+"{{ book_title }}", prestato a {{ borrower_name }}, scade il {{ due_date }}.
+
+Potrebbe essere il momento di sollecitarne la restituzione.

@@ -7,7 +7,7 @@ from app.application.use_cases.families import (
     DeleteFamilyUseCase,
     VerifyFamilyDeletionInput,
 )
-from app.domain.entities import Family, User
+from app.domain.entities import Family, User, UserRole
 
 
 @pytest.fixture
@@ -20,7 +20,7 @@ def family_and_admin(mock_family_repo, mock_user_repo, password_hasher):
                 email="admin@example.com",
                 password_hash=password_hasher.hash("correct-password"),
                 full_name="Admin",
-                role="admin",
+                role=UserRole.ADMIN,
             )
         )
         return family, admin

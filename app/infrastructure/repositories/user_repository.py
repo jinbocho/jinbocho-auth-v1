@@ -3,7 +3,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.entities import User
+from app.domain.entities import Language, ThemeMode, ThemeName, User, UserRole
 from app.domain.repositories import UserRepository
 from app.infrastructure.models import UserModel
 
@@ -20,12 +20,12 @@ class SQLAlchemyUserRepository(UserRepository):
             email=model.email,
             password_hash=model.password_hash,
             full_name=model.full_name,
-            role=model.role,
+            role=UserRole(model.role),
             is_active=model.is_active,
             annual_reading_goal=model.annual_reading_goal,
-            language=model.language,
-            theme_name=model.theme_name,
-            theme_mode=model.theme_mode,
+            language=Language(model.language) if model.language else None,
+            theme_name=ThemeName(model.theme_name) if model.theme_name else None,
+            theme_mode=ThemeMode(model.theme_mode) if model.theme_mode else None,
             password_set_at=model.password_set_at,
             created_at=model.created_at,
             updated_at=model.updated_at,

@@ -1,0 +1,22 @@
+{% extends "_base.html" %}
+{% block preheader %}Rappel : "{{ book_title }}" prêté à {{ borrower_name }} doit être rendu le {{ due_date }}.{% endblock %}
+{% block content %}
+<h2 class="email-title">Rappel de prêt</h2>
+<p class="email-meta">Bibliothèque &middot; Échéance Imminente</p>
+<p class="email-text">
+  L&rsquo;un des livres que vous avez prêtés arrive à échéance. Vous voudrez peut-être contacter l&rsquo;emprunteur.
+</p>
+<div class="info-card">
+  <span class="info-label">Livre</span>
+  <span class="info-value">{{ book_title }}</span>
+</div>
+<div class="info-card">
+  <span class="info-label">Prêté à</span>
+  <span class="info-value">{{ borrower_name }}</span>
+</div>
+<div class="info-card">
+  <span class="info-label">Date d&rsquo;échéance</span>
+  <span class="info-value due-date-value">{{ due_date }}</span>
+</div>
+{% endblock %}
+{% block footer_text %}Gestion de votre bibliothèque familiale{% endblock %}

@@ -1,0 +1,7 @@
+Se ha creado una cuenta para ti en Jinbocho.
+
+Haz clic en el enlace a continuación para establecer tu contraseña y comenzar (válido 7 días):
+
+{{ link }}
+
+Si no esperabas este correo, puedes ignorarlo.

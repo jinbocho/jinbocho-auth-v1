@@ -1,0 +1,7 @@
+You requested a password reset for your Jinbocho account.
+
+Click the link below to set a new password (valid for 15 minutes):
+
+{{ link }}
+
+If you didn't request this, you can safely ignore this email.

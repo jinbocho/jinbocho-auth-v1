@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -5,6 +6,8 @@ from app.application.services import TokenService
 from app.domain.exceptions import InvalidResetTokenError, ResetTokenAlreadyUsedError
 from app.domain.repositories import PasswordResetTokenRepository, UserRepository
 from app.domain.services import PasswordHasher
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -31,6 +34,7 @@ class ResetPasswordUseCase:
         token = await self._reset_token_repo.find_by_token_hash(token_hash)
 
         if not token:
+            logger.warning("Password reset attempted with unknown token")
             raise InvalidResetTokenError("Invalid or expired reset token")
 
         now = datetime.now(timezone.utc)
@@ -54,3 +58,4 @@ class ResetPasswordUseCase:
         user.updated_at = now
         await self._user_repo.save(user)
         await self._reset_token_repo.mark_used(token.id, now)
+        logger.info("Password reset completed for user %s (purpose: %s)", user.id, token.purpose)

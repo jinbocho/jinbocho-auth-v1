@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Jinbocho</title>
+  <!--[if mso]>
+  <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+  <![endif]-->
+  <style>
+    {% include "_styles.css" %}
+  </style>
+</head>
+<body class="email-outer">
+
+  <!-- Preheader: hidden preview text shown by email clients -->
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#f8f7f4;">
+    {% block preheader %}{% endblock %}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-outer">
+    <tr>
+      <td align="center" class="email-outer-cell">
+
+        <table role="presentation" class="email-card" width="600" cellpadding="0" cellspacing="0">
+
+          <!-- ─── HEADER ──────────────────────────────────── -->
+          <tr>
+            <td class="email-header">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <span class="logo-wrap">
+                      <img
+                        src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0NyIgZmlsbD0iI2JjMDAyZCIvPjxwb2x5Z29uIHBvaW50cz0iMjUsMzEuMjUgMzcuNSwyNSAzNy41LDY4Ljc1IDI1LDY1LjYyNSIgZmlsbD0iI2ZmZiIvPjxwb2x5Z29uIHBvaW50cz0iMzcuNSwyNSA1MCwyOS42ODggNTAsNzMuNDM4IDM3LjUsNjguNzUiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iLjg1MSIvPjxwb2x5Z29uIHBvaW50cz0iNTAsMjkuNjg4IDYyLjUsMjUgNjIuNSw2NS42MjUgNTAsNzMuNDM4IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9Ii43MDIiLz48cG9seWdvbiBwb2ludHM9IjYyLjUsMjUgNzUsMzEuMjUgNzUsNjUuNjI1IDYyLjUsNjUuNjI1IiBmaWxsPSIjZmZmIi8+PC9zdmc+"
+                        alt="Jinbocho"
+                        width="44"
+                        height="44"
+                        style="display:block;"
+                      />
+                    </span>
+                    <span class="brand-name">Jinbocho</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ─── RED ACCENT BAR ─────────────────────────── -->
+          <tr>
+            <td class="accent-bar">&nbsp;</td>
+          </tr>
+
+          <!-- ─── BODY ───────────────────────────────────── -->
+          <tr>
+            <td class="email-body">
+              {% block content %}{% endblock %}
+            </td>
+          </tr>
+
+          <!-- ─── FOOTER ─────────────────────────────────── -->
+          <tr>
+            <td class="email-footer">
+              <p class="footer-text">
+                Jinbocho &mdash; {% block footer_text %}Home Library Management{% endblock %}
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
