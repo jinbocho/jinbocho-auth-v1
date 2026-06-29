@@ -24,6 +24,7 @@ class User:
     # None until the invitee (or the admin who created them) sets a real
     # password via the invite/reset link — the signal used to show "invite
     # pending" in the UI, since is_active is true from creation onward.
+    avatar_url: str | None = None
     password_set_at: datetime | None = None
     id: UUID = field(default_factory=uuid4)
     created_at: datetime = field(default_factory=_utcnow)

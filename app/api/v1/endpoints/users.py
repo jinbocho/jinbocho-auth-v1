@@ -1,16 +1,18 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
 
 from app.api.dependencies import (
     JWTPayload,
     get_create_user_use_case,
     get_current_user_payload,
+    get_delete_avatar_use_case,
     get_delete_user_use_case,
     get_family_repository,
     get_import_users_use_case,
     get_resend_invite_use_case,
     get_update_user_use_case,
+    get_upload_avatar_use_case,
     get_user_repository,
     require_role,
 )
@@ -25,6 +27,8 @@ from app.api.v1.schemas.user_schemas import MeUpdate, UserCreate, UserResponse, 
 from app.application.use_cases.users import (
     CreateUserInput,
     CreateUserUseCase,
+    DeleteAvatarInput,
+    DeleteAvatarUseCase,
     DeleteUserInput,
     DeleteUserUseCase,
     ExportFamilyDataInput,
@@ -40,6 +44,8 @@ from app.application.use_cases.users import (
     ResendInviteUseCase,
     UpdateUserInput,
     UpdateUserUseCase,
+    UploadAvatarInput,
+    UploadAvatarUseCase,
 )
 from app.domain.entities import User
 from app.domain.repositories import FamilyRepository, UserRepository
@@ -248,6 +254,52 @@ async def import_users(
         user_id_map={str(old): str(new) for old, new in result.user_id_map.items()},
         created=result.created,
         matched=result.matched,
+    )
+
+
+@router.post(
+    "/me/avatar",
+    response_model=UserResponse,
+    summary="Upload profile picture",
+    description="Upload a JPEG, PNG, or WebP image as the current user's profile picture. "
+    "The image is resized server-side to 200×200 px and stored as a WebP data URL."
+)
+async def upload_avatar(
+    file: UploadFile = File(...),
+    payload: JWTPayload = Depends(get_current_user_payload),
+    use_case: UploadAvatarUseCase = Depends(get_upload_avatar_use_case),
+    user_repo: UserRepository = Depends(get_user_repository),
+) -> UserResponse:
+    image_bytes = await file.read()
+    await use_case.execute(
+        UploadAvatarInput(
+            user_id=UUID(payload["sub"]),
+            family_id=UUID(payload["family_id"]),
+            image_bytes=image_bytes,
+            content_type=file.content_type or "",
+        )
+    )
+    result = await GetUserUseCase(user_repo).execute(
+        GetUserInput(user_id=UUID(payload["sub"]), requester_family_id=UUID(payload["family_id"]))
+    )
+    return UserResponse.model_validate(result)
+
+
+@router.delete(
+    "/me/avatar",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete profile picture",
+    description="Remove the current user's profile picture."
+)
+async def delete_avatar(
+    payload: JWTPayload = Depends(get_current_user_payload),
+    use_case: DeleteAvatarUseCase = Depends(get_delete_avatar_use_case),
+) -> None:
+    await use_case.execute(
+        DeleteAvatarInput(
+            user_id=UUID(payload["sub"]),
+            family_id=UUID(payload["family_id"]),
+        )
     )
 
 

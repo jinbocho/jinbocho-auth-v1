@@ -20,6 +20,7 @@ class UserResponse(BaseModel):
     language: Language | None = Field(default=None, description="UI language preference")
     theme_name: ThemeName | None = Field(default=None, description="UI theme")
     theme_mode: ThemeMode | None = Field(default=None, description="UI colour mode")
+    avatar_url: str | None = Field(default=None, description="Profile picture as a data URL (base64 webp, 200×200)")
     password_set_at: datetime | None = Field(
         default=None, description="When the user set their own password; null means their invite is still pending"
     )

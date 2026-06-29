@@ -28,6 +28,7 @@ class GetUserOutput:
     language: Language | None = None
     theme_name: ThemeName | None = None
     theme_mode: ThemeMode | None = None
+    avatar_url: str | None = None
     password_set_at: datetime | None = None
 
 
@@ -52,5 +53,6 @@ class GetUserUseCase:
             language=user.language,
             theme_name=user.theme_name,
             theme_mode=user.theme_mode,
+            avatar_url=user.avatar_url,
             password_set_at=user.password_set_at,
         )

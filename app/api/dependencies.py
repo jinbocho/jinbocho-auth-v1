@@ -25,10 +25,12 @@ from app.application.use_cases.families import (
 )
 from app.application.use_cases.users import (
     CreateUserUseCase,
+    DeleteAvatarUseCase,
     ImportUsersUseCase,
     ResendInviteUseCase,
     UpdateUserUseCase,
     DeleteUserUseCase,
+    UploadAvatarUseCase,
 )
 from app.config import settings
 from app.domain.repositories import (
@@ -258,6 +260,18 @@ def get_delete_user_use_case(
     return DeleteUserUseCase(user_repo)
 
 
+def get_upload_avatar_use_case(
+    user_repo: UserRepository = Depends(get_user_repository),
+) -> UploadAvatarUseCase:
+    return UploadAvatarUseCase(user_repo)
+
+
+def get_delete_avatar_use_case(
+    user_repo: UserRepository = Depends(get_user_repository),
+) -> DeleteAvatarUseCase:
+    return DeleteAvatarUseCase(user_repo)
+
+
 def get_get_family_use_case(
     family_repo: FamilyRepository = Depends(get_family_repository),
 ) -> GetFamilyUseCase:
@@ -317,6 +331,8 @@ __all__ = [
     "get_create_user_use_case",
     "get_update_user_use_case",
     "get_delete_user_use_case",
+    "get_upload_avatar_use_case",
+    "get_delete_avatar_use_case",
     "get_resend_invite_use_case",
     "get_import_users_use_case",
     "get_get_family_use_case",

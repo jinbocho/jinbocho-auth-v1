@@ -39,6 +39,7 @@ class UpdateUserOutput:
     language: Language | None = None
     theme_name: ThemeName | None = None
     theme_mode: ThemeMode | None = None
+    avatar_url: str | None = None
     password_set_at: datetime | None = None
 
 
@@ -89,5 +90,6 @@ class UpdateUserUseCase:
             language=updated_user.language,
             theme_name=updated_user.theme_name,
             theme_mode=updated_user.theme_mode,
+            avatar_url=updated_user.avatar_url,
             password_set_at=updated_user.password_set_at,
         )
