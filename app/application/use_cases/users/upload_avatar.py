@@ -42,7 +42,7 @@ class UploadAvatarUseCase:
         left = (img.width - side) // 2
         top = (img.height - side) // 2
         img = img.crop((left, top, left + side, top + side))
-        img = img.resize((_TARGET_PX, _TARGET_PX), Image.LANCZOS)
+        img = img.resize((_TARGET_PX, _TARGET_PX), Image.Resampling.LANCZOS)
 
         buf = io.BytesIO()
         img.save(buf, format="WEBP", quality=80)

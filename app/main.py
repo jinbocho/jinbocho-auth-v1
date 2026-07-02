@@ -3,9 +3,12 @@
 from fastapi import FastAPI
 
 from app.api.v1.router import router as v1_router
-from app.core import OPENAPI_CONFIG, configure_exception_handlers, lifespan
+from app.config import settings
+from app.core import OPENAPI_CONFIG, configure_exception_handlers, configure_logging, lifespan
 from app.limiter import limiter
 import app.infrastructure.models as _models  # noqa: F401 — registers ORM models with SQLAlchemy
+
+configure_logging(debug=settings.debug)
 
 
 def create_app() -> FastAPI:
