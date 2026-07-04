@@ -71,6 +71,8 @@ async def test_family_and_user(async_client):
             "admin_email": email,
             "admin_password": "Password123!",
             "admin_full_name": "Admin User",
+            "accepted_privacy_version": "1.0",
+            "accepted_terms_version": "1.0",
         },
     )
     assert register_response.status_code == 201

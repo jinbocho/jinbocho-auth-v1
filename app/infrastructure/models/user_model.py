@@ -31,6 +31,9 @@ class UserModel(Base):
     theme_mode: Mapped[str | None] = mapped_column(String(10), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     password_set_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    consent_privacy_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    consent_terms_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

@@ -130,6 +130,8 @@ async def test_delete_family_succeeds_with_correct_credentials(async_client):
             "admin_email": email,
             "admin_password": "Password123!",
             "admin_full_name": "Doomed Admin",
+            "accepted_privacy_version": "1.0",
+            "accepted_terms_version": "1.0",
         },
     )
     assert reg.status_code == 201

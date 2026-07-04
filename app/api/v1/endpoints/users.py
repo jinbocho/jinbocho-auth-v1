@@ -199,7 +199,13 @@ async def export_family_data(
     use_case = ExportFamilyDataUseCase(family_repo, user_repo)
     result = await use_case.execute(ExportFamilyDataInput(family_id=UUID(payload["family_id"])))
     return FamilyDataExportResponse(
-        family=FamilyExportItem(id=result.family_id, name=result.family_name, description=result.family_description),
+        family=FamilyExportItem(
+            id=result.family_id,
+            name=result.family_name,
+            description=result.family_description,
+            created_at=result.family_created_at,
+            updated_at=result.family_updated_at,
+        ),
         users=[
             UserExportItem(
                 id=u.id,
@@ -211,6 +217,13 @@ async def export_family_data(
                 language=u.language,
                 theme_name=u.theme_name,
                 theme_mode=u.theme_mode,
+                avatar_url=u.avatar_url,
+                password_set_at=u.password_set_at,
+                consent_privacy_version=u.consent_privacy_version,
+                consent_terms_version=u.consent_terms_version,
+                consent_at=u.consent_at,
+                created_at=u.created_at,
+                updated_at=u.updated_at,
             )
             for u in result.users
         ],

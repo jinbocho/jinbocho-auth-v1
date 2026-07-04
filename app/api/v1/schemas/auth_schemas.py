@@ -9,6 +9,12 @@ class RegisterRequest(BaseModel):
     admin_email: EmailStr = Field(description="Admin user email")
     admin_password: str = Field(min_length=8, description="Admin password (min 8 chars)")
     admin_full_name: str = Field(min_length=1, max_length=255, description="Admin user full name")
+    accepted_privacy_version: str = Field(
+        min_length=1, max_length=20, description="Version of the Privacy Policy the admin accepted (e.g. '1.0')"
+    )
+    accepted_terms_version: str = Field(
+        min_length=1, max_length=20, description="Version of the Terms of Service the admin accepted (e.g. '1.0')"
+    )
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -16,7 +22,9 @@ class RegisterRequest(BaseModel):
                 "family_name": "Smith Family",
                 "admin_email": "john@example.com",
                 "admin_password": "SecurePass123!",
-                "admin_full_name": "John Smith"
+                "admin_full_name": "John Smith",
+                "accepted_privacy_version": "1.0",
+                "accepted_terms_version": "1.0"
             }
         }
     )

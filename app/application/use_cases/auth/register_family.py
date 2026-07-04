@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from uuid import UUID
 
 from app.application.ports import EmailService
@@ -17,6 +18,11 @@ class RegisterFamilyInput:
     admin_email: str
     admin_password: str
     admin_full_name: str
+    # Required, not optional: GDPR Art. 7 requires being able to demonstrate
+    # consent was given, so registration must record which policy version the
+    # admin actually accepted rather than assuming the "current" one applied.
+    accepted_privacy_version: str
+    accepted_terms_version: str
 
 
 @dataclass
@@ -41,6 +47,9 @@ class RegisterFamilyUseCase:
         self._frontend_base_url = frontend_base_url
 
     async def execute(self, input: RegisterFamilyInput) -> RegisterFamilyOutput:
+        if not input.accepted_privacy_version.strip() or not input.accepted_terms_version.strip():
+            raise ValueError("Privacy policy and terms of service must be accepted to register")
+
         family = Family(name=input.family_name)
         family = await self._family_repo.save(family)
 
@@ -50,6 +59,9 @@ class RegisterFamilyUseCase:
             password_hash=self._password_hasher.hash(input.admin_password),
             full_name=input.admin_full_name,
             role=UserRole.ADMIN,
+            consent_privacy_version=input.accepted_privacy_version,
+            consent_terms_version=input.accepted_terms_version,
+            consent_at=datetime.now(timezone.utc),
         )
         user = await self._user_repo.save(user)
 

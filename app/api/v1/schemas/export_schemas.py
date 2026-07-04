@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
@@ -11,12 +12,17 @@ class FamilyExportItem(BaseModel):
     id: UUID
     name: str
     description: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 class UserExportItem(BaseModel):
-    """A family member, exported without any credential. On import, users are
-    matched by email (matched, not re-created) or invited exactly like the
-    normal 'invite user' flow (they set their own password via email)."""
+    """A family member. Used both to restore a backup (users are matched by
+    email — matched, not re-created — or invited like the normal 'invite
+    user' flow) and as the auth-service part of the GDPR Art. 15/20 'download
+    my data' bundle — the audit/consent fields below exist for the latter and
+    are ignored by the import endpoint, which only reads the roster fields it
+    declares in ImportUserItem."""
     id: UUID = Field(description="Original user ID — used to remap references in the catalog import")
     email: EmailStr
     full_name: str
@@ -26,6 +32,13 @@ class UserExportItem(BaseModel):
     language: Optional[Language] = None
     theme_name: Optional[ThemeName] = None
     theme_mode: Optional[ThemeMode] = None
+    avatar_url: Optional[str] = None
+    password_set_at: Optional[datetime] = None
+    consent_privacy_version: Optional[str] = None
+    consent_terms_version: Optional[str] = None
+    consent_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 class FamilyDataExportResponse(BaseModel):

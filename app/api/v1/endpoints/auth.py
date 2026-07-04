@@ -59,6 +59,8 @@ async def register_family(
             admin_email=body.admin_email,
             admin_password=body.admin_password,
             admin_full_name=body.admin_full_name,
+            accepted_privacy_version=body.accepted_privacy_version,
+            accepted_terms_version=body.accepted_terms_version,
         )
     )
     return RegisterResponse(family_id=result.family_id, user_id=result.user_id)

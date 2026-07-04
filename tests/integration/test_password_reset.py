@@ -101,6 +101,8 @@ async def test_register_duplicate_email_returns_409(async_client):
         "admin_email": "duplicate@test.com",
         "admin_password": "Password123!",
         "admin_full_name": "Dup Admin",
+        "accepted_privacy_version": "1.0",
+        "accepted_terms_version": "1.0",
     }
     first = await async_client.post("/v1/auth/register", json=payload)
     assert first.status_code == 201

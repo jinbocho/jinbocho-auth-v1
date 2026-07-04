@@ -11,12 +11,30 @@ async def test_register_family_success(async_client):
             "admin_email": "admin@family.com",
             "admin_password": "SecurePassword123!",
             "admin_full_name": "Admin Name",
+            "accepted_privacy_version": "1.0",
+            "accepted_terms_version": "1.0",
         },
     )
     assert response.status_code == 201
     data = response.json()
     assert "family_id" in data
     assert "user_id" in data
+
+
+@pytest.mark.asyncio
+async def test_register_family_without_consent_versions_is_rejected(async_client):
+    """GDPR Art. 7: registration must record which policy version was
+    accepted, so the fields are required — not optional metadata."""
+    response = await async_client.post(
+        "/v1/auth/register",
+        json={
+            "family_name": "No Consent Family",
+            "admin_email": "no-consent@family.com",
+            "admin_password": "SecurePassword123!",
+            "admin_full_name": "Admin Name",
+        },
+    )
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio
@@ -30,6 +48,8 @@ async def test_register_family_sends_welcome_email(async_client, capsys):
             "admin_email": "welcome-admin@family.com",
             "admin_password": "SecurePassword123!",
             "admin_full_name": "Admin Name",
+            "accepted_privacy_version": "1.0",
+            "accepted_terms_version": "1.0",
         },
     )
     assert response.status_code == 201

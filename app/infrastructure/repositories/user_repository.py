@@ -28,6 +28,9 @@ class SQLAlchemyUserRepository(UserRepository):
             theme_mode=ThemeMode(model.theme_mode) if model.theme_mode else None,
             avatar_url=model.avatar_url,
             password_set_at=model.password_set_at,
+            consent_privacy_version=model.consent_privacy_version,
+            consent_terms_version=model.consent_terms_version,
+            consent_at=model.consent_at,
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
@@ -47,6 +50,9 @@ class SQLAlchemyUserRepository(UserRepository):
             theme_mode=user.theme_mode,
             avatar_url=user.avatar_url,
             password_set_at=user.password_set_at,
+            consent_privacy_version=user.consent_privacy_version,
+            consent_terms_version=user.consent_terms_version,
+            consent_at=user.consent_at,
             created_at=user.created_at,
             updated_at=user.updated_at,
         )
