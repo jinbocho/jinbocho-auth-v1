@@ -8,16 +8,24 @@ from app.api.dependencies import (
     get_current_user_payload,
     get_delete_family_use_case,
     get_get_family_use_case,
+    get_revoke_family_sessions_use_case,
     get_update_family_use_case,
     require_role,
 )
-from app.api.v1.schemas.family_schemas import DeleteFamilyRequest, FamilyResponse, FamilyUpdate
+from app.api.v1.schemas.family_schemas import (
+    DeleteFamilyRequest,
+    FamilyResponse,
+    FamilyUpdate,
+    RevokeSessionsResponse,
+)
 from app.application.use_cases.families import (
     ConfirmFamilyDeletionUseCase,
     DeleteFamilyInput,
     DeleteFamilyUseCase,
     GetFamilyInput,
     GetFamilyUseCase,
+    RevokeFamilySessionsInput,
+    RevokeFamilySessionsUseCase,
     UpdateFamilyInput,
     UpdateFamilyUseCase,
     VerifyFamilyDeletionInput,
@@ -90,6 +98,27 @@ async def confirm_family_deletion(
             confirm_family_name=request.confirm_family_name,
         )
     )
+
+
+@router.post(
+    "/{family_id}/revoke-sessions",
+    response_model=RevokeSessionsResponse,
+    summary="Emergency: revoke every active session for every family member",
+    description="Revokes every refresh token for every member of the family, forcing everyone to "
+    "log in again next time their access token expires or they try to refresh it. Use this if a "
+    "credential leak is suspected. Already-issued access tokens keep working until their natural "
+    "expiry (JWTs are stateless by design, ADR-008) — this bounds, but does not instantly close, "
+    "the exposure window. Requires admin role."
+)
+async def revoke_family_sessions(
+    family_id: UUID,
+    payload: JWTPayload = Depends(require_role("admin")),
+    use_case: RevokeFamilySessionsUseCase = Depends(get_revoke_family_sessions_use_case),
+) -> RevokeSessionsResponse:
+    result = await use_case.execute(
+        RevokeFamilySessionsInput(family_id=family_id, requester_family_id=UUID(payload["family_id"]))
+    )
+    return RevokeSessionsResponse(revoked_count=result.revoked_count)
 
 
 @router.delete(

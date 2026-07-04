@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from uuid import UUID
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,6 +52,17 @@ class SQLAlchemyRefreshTokenRepository(RefreshTokenRepository):
             .values(revoked_at=datetime.now(timezone.utc))
         )
         await self._session.flush()
+
+    async def revoke_all_for_users(self, user_ids: list[UUID]) -> int:
+        if not user_ids:
+            return 0
+        result = await self._session.execute(
+            update(RefreshTokenModel)
+            .where(RefreshTokenModel.user_id.in_(user_ids), RefreshTokenModel.revoked_at.is_(None))
+            .values(revoked_at=datetime.now(timezone.utc))
+        )
+        await self._session.flush()
+        return result.rowcount
 
     async def cleanup_expired(self) -> int:
         now = datetime.now(timezone.utc)

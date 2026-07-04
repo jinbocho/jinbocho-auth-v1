@@ -33,3 +33,8 @@ class DeleteFamilyRequest(BaseModel):
     JWT alone is never enough to wipe the account."""
     password: str = Field(description="The requesting admin's current password")
     confirm_family_name: str = Field(description="Must exactly match the family's current name")
+
+
+class RevokeSessionsResponse(BaseModel):
+    """Result of an emergency family-wide session revocation."""
+    revoked_count: int = Field(description="Number of active refresh tokens revoked across all family members")

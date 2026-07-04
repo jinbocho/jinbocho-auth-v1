@@ -4,11 +4,20 @@ from fastapi import FastAPI
 
 from app.api.v1.router import router as v1_router
 from app.config import settings
-from app.core import OPENAPI_CONFIG, configure_exception_handlers, configure_logging, lifespan
+from app.core import (
+    OPENAPI_CONFIG,
+    configure_exception_handlers,
+    configure_logging,
+    configure_telemetry,
+    instrument_logging,
+    lifespan,
+)
+from app.infrastructure.database.session import engine
 from app.limiter import limiter
 import app.infrastructure.models as _models  # noqa: F401 — registers ORM models with SQLAlchemy
 
-configure_logging(debug=settings.debug)
+instrument_logging()
+configure_logging(debug=settings.debug, otel_enabled=settings.otel_enabled)
 
 
 def create_app() -> FastAPI:
@@ -24,6 +33,9 @@ def create_app() -> FastAPI:
 
     # Configure exception handlers
     configure_exception_handlers(app)
+
+    # Observability (ADR-012) — no-op unless OTEL_ENABLED=true
+    configure_telemetry(app, service_name="auth-service", engine=engine)
 
     # Include routers
     app.include_router(v1_router, prefix="/v1")

@@ -68,6 +68,15 @@ class MockRefreshTokenRepository(RefreshTokenRepository):
             token = self.tokens[token_hash]
             token.revoked_at = datetime.now(timezone.utc)
 
+    async def revoke_all_for_users(self, user_ids: list) -> int:
+        now = datetime.now(timezone.utc)
+        count = 0
+        for token in self.tokens.values():
+            if token.user_id in user_ids and token.revoked_at is None:
+                token.revoked_at = now
+                count += 1
+        return count
+
     async def cleanup_expired(self) -> int:
         now = datetime.now(timezone.utc)
         expired = [h for h, t in self.tokens.items() if t.expires_at < now]

@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     # us to send a loan-reminder email) — these don't carry a user JWT.
     internal_service_token: str = ""
 
+    # Observability (ADR-012) — off by default so a service run without the
+    # optional Alloy collector container behaves exactly as before.
+    otel_enabled: bool = False
+    otel_exporter_otlp_endpoint: str = "http://alloy:4318"
+
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).parent.parent / ".env"),
         env_file_encoding="utf-8",

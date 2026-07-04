@@ -21,6 +21,7 @@ from app.application.use_cases.families import (
     ConfirmFamilyDeletionUseCase,
     DeleteFamilyUseCase,
     GetFamilyUseCase,
+    RevokeFamilySessionsUseCase,
     UpdateFamilyUseCase,
 )
 from app.application.use_cases.users import (
@@ -300,6 +301,13 @@ def get_delete_family_use_case(
     return DeleteFamilyUseCase(family_repo, user_repo, password_hasher)
 
 
+def get_revoke_family_sessions_use_case(
+    user_repo: UserRepository = Depends(get_user_repository),
+    refresh_token_repo: RefreshTokenRepository = Depends(get_refresh_token_repository),
+) -> RevokeFamilySessionsUseCase:
+    return RevokeFamilySessionsUseCase(user_repo, refresh_token_repo)
+
+
 def get_import_users_use_case(
     user_repo: UserRepository = Depends(get_user_repository),
     create_user_uc: CreateUserUseCase = Depends(get_create_user_use_case),
@@ -339,4 +347,5 @@ __all__ = [
     "get_update_family_use_case",
     "get_confirm_family_deletion_use_case",
     "get_delete_family_use_case",
+    "get_revoke_family_sessions_use_case",
 ]
