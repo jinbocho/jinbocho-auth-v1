@@ -7,7 +7,7 @@ from app.domain.repositories import UserRepository
 
 @dataclass
 class ListUsersInput:
-    family_id: UUID
+    library_id: UUID
 
 
 @dataclass
@@ -20,5 +20,5 @@ class ListUsersUseCase:
         self._user_repo = user_repo
 
     async def execute(self, input: ListUsersInput) -> ListUsersOutput:
-        users = await self._user_repo.find_by_family(input.family_id)
+        users = await self._user_repo.find_by_library(input.library_id)
         return ListUsersOutput(users=users)

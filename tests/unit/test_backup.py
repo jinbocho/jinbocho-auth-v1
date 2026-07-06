@@ -3,22 +3,22 @@ from uuid import uuid4
 
 from app.application.use_cases.users import (
     CreateUserUseCase,
-    ExportFamilyDataInput,
-    ExportFamilyDataUseCase,
+    ExportLibraryDataInput,
+    ExportLibraryDataUseCase,
     ImportUserItem,
     ImportUsersInput,
     ImportUsersUseCase,
     UpdateUserUseCase,
 )
-from app.domain.entities import Family, User, UserRole
+from app.domain.entities import Library, User, UserRole
 from app.domain.entities.enums import Language, ThemeMode, ThemeName
 
 
 @pytest.mark.asyncio
-async def test_export_family_data_excludes_password(mock_family_repo, mock_user_repo, password_hasher):
-    family = await mock_family_repo.save(Family(id=uuid4(), name="The Smiths", description="Test family"))
+async def test_export_library_data_excludes_password(mock_library_repo, mock_user_repo, password_hasher):
+    library = await mock_library_repo.save(Library(id=uuid4(), name="The Smiths", description="Test library"))
     user = User(
-        family_id=family.id,
+        library_id=library.id,
         email="jane@example.com",
         password_hash=password_hasher.hash("whatever"),
         full_name="Jane Smith",
@@ -26,11 +26,11 @@ async def test_export_family_data_excludes_password(mock_family_repo, mock_user_
     )
     await mock_user_repo.save(user)
 
-    use_case = ExportFamilyDataUseCase(mock_family_repo, mock_user_repo)
-    result = await use_case.execute(ExportFamilyDataInput(family_id=family.id))
+    use_case = ExportLibraryDataUseCase(mock_library_repo, mock_user_repo)
+    result = await use_case.execute(ExportLibraryDataInput(library_id=library.id))
 
-    assert result.family_name == "The Smiths"
-    assert result.family_description == "Test family"
+    assert result.library_name == "The Smiths"
+    assert result.library_description == "Test library"
     assert len(result.users) == 1
     exported = result.users[0]
     assert exported.email == "jane@example.com"
@@ -38,20 +38,20 @@ async def test_export_family_data_excludes_password(mock_family_repo, mock_user_
 
 
 @pytest.mark.asyncio
-async def test_export_family_data_family_not_found(mock_family_repo, mock_user_repo):
-    use_case = ExportFamilyDataUseCase(mock_family_repo, mock_user_repo)
+async def test_export_library_data_library_not_found(mock_library_repo, mock_user_repo):
+    use_case = ExportLibraryDataUseCase(mock_library_repo, mock_user_repo)
     with pytest.raises(LookupError):
-        await use_case.execute(ExportFamilyDataInput(family_id=uuid4()))
+        await use_case.execute(ExportLibraryDataInput(library_id=uuid4()))
 
 
 @pytest.mark.asyncio
 async def test_import_users_matches_existing_email_without_reinviting(
-    mock_user_repo, mock_password_reset_token_repo, fake_email_sender, password_hasher, token_service
+    mock_user_repo, mock_membership_repo, mock_password_reset_token_repo, fake_email_sender, password_hasher, token_service
 ):
-    family_id = uuid4()
+    library_id = uuid4()
     existing = await mock_user_repo.save(
         User(
-            family_id=family_id,
+            library_id=library_id,
             email="jane@example.com",
             password_hash=password_hasher.hash("their_real_password"),
             full_name="Jane Smith",
@@ -60,16 +60,16 @@ async def test_import_users_matches_existing_email_without_reinviting(
     )
 
     create_user = CreateUserUseCase(
-        mock_user_repo, mock_password_reset_token_repo, fake_email_sender, token_service, password_hasher,
+        mock_user_repo, mock_membership_repo, mock_password_reset_token_repo, fake_email_sender, token_service, password_hasher,
         invite_expire_minutes=10080, frontend_base_url="http://localhost:5173",
     )
-    update_user = UpdateUserUseCase(mock_user_repo)
+    update_user = UpdateUserUseCase(mock_user_repo, mock_membership_repo)
     use_case = ImportUsersUseCase(mock_user_repo, create_user, update_user)
 
     old_id = uuid4()
     result = await use_case.execute(
         ImportUsersInput(
-            family_id=family_id,
+            library_id=library_id,
             users=[ImportUserItem(id=old_id, email="jane@example.com", full_name="Jane Smith", role=UserRole.ADMIN)],
         )
     )
@@ -84,20 +84,20 @@ async def test_import_users_matches_existing_email_without_reinviting(
 
 @pytest.mark.asyncio
 async def test_import_users_invites_unknown_email_and_applies_preferences(
-    mock_user_repo, mock_password_reset_token_repo, fake_email_sender, password_hasher, token_service
+    mock_user_repo, mock_membership_repo, mock_password_reset_token_repo, fake_email_sender, password_hasher, token_service
 ):
-    family_id = uuid4()
+    library_id = uuid4()
     create_user = CreateUserUseCase(
-        mock_user_repo, mock_password_reset_token_repo, fake_email_sender, token_service, password_hasher,
+        mock_user_repo, mock_membership_repo, mock_password_reset_token_repo, fake_email_sender, token_service, password_hasher,
         invite_expire_minutes=10080, frontend_base_url="http://localhost:5173",
     )
-    update_user = UpdateUserUseCase(mock_user_repo)
+    update_user = UpdateUserUseCase(mock_user_repo, mock_membership_repo)
     use_case = ImportUsersUseCase(mock_user_repo, create_user, update_user)
 
     old_id = uuid4()
     result = await use_case.execute(
         ImportUsersInput(
-            family_id=family_id,
+            library_id=library_id,
             users=[
                 ImportUserItem(
                     id=old_id,
@@ -120,7 +120,7 @@ async def test_import_users_invites_unknown_email_and_applies_preferences(
     assert new_id != old_id
 
     created = await mock_user_repo.find_by_id(new_id)
-    assert created.family_id == family_id
+    assert created.library_id == library_id
     assert created.annual_reading_goal == 12
     assert created.language == Language.IT
     assert created.theme_name == ThemeName.AKABENI
@@ -132,12 +132,12 @@ async def test_import_users_invites_unknown_email_and_applies_preferences(
 
 @pytest.mark.asyncio
 async def test_import_users_mixed_batch_builds_correct_id_map(
-    mock_user_repo, mock_password_reset_token_repo, fake_email_sender, password_hasher, token_service
+    mock_user_repo, mock_membership_repo, mock_password_reset_token_repo, fake_email_sender, password_hasher, token_service
 ):
-    family_id = uuid4()
+    library_id = uuid4()
     existing = await mock_user_repo.save(
         User(
-            family_id=family_id,
+            library_id=library_id,
             email="existing@example.com",
             password_hash=password_hasher.hash("x"),
             full_name="Existing",
@@ -146,17 +146,17 @@ async def test_import_users_mixed_batch_builds_correct_id_map(
     )
 
     create_user = CreateUserUseCase(
-        mock_user_repo, mock_password_reset_token_repo, fake_email_sender, token_service, password_hasher,
+        mock_user_repo, mock_membership_repo, mock_password_reset_token_repo, fake_email_sender, token_service, password_hasher,
         invite_expire_minutes=10080, frontend_base_url="http://localhost:5173",
     )
-    update_user = UpdateUserUseCase(mock_user_repo)
+    update_user = UpdateUserUseCase(mock_user_repo, mock_membership_repo)
     use_case = ImportUsersUseCase(mock_user_repo, create_user, update_user)
 
     old_existing_id = uuid4()
     old_new_id = uuid4()
     result = await use_case.execute(
         ImportUsersInput(
-            family_id=family_id,
+            library_id=library_id,
             users=[
                 ImportUserItem(id=old_existing_id, email="existing@example.com", full_name="Existing", role=UserRole.EDITOR),
                 ImportUserItem(id=old_new_id, email="brandnew@example.com", full_name="Brand New", role=UserRole.VIEWER),
@@ -173,23 +173,23 @@ async def test_import_users_mixed_batch_builds_correct_id_map(
 
 @pytest.mark.asyncio
 async def test_import_users_invites_a_removed_member_recovered_via_snapshot(
-    mock_user_repo, mock_password_reset_token_repo, fake_email_sender, password_hasher, token_service
+    mock_user_repo, mock_membership_repo, mock_password_reset_token_repo, fake_email_sender, password_hasher, token_service
 ):
     """A 'user' entry recovered from catalog-service's removed-member snapshot
     must go through the exact same match-or-invite path as a normal roster
     entry — no special-casing, no synthetic placeholder."""
-    family_id = uuid4()
+    library_id = uuid4()
     create_user = CreateUserUseCase(
-        mock_user_repo, mock_password_reset_token_repo, fake_email_sender, token_service, password_hasher,
+        mock_user_repo, mock_membership_repo, mock_password_reset_token_repo, fake_email_sender, token_service, password_hasher,
         invite_expire_minutes=10080, frontend_base_url="http://localhost:5173",
     )
-    update_user = UpdateUserUseCase(mock_user_repo)
+    update_user = UpdateUserUseCase(mock_user_repo, mock_membership_repo)
     use_case = ImportUsersUseCase(mock_user_repo, create_user, update_user)
 
     recovered_id = uuid4()
     result = await use_case.execute(
         ImportUsersInput(
-            family_id=family_id,
+            library_id=library_id,
             users=[
                 ImportUserItem(id=recovered_id, email="giuseppe@example.com", full_name="Giuseppe Bianchi", role=UserRole.VIEWER)
             ],

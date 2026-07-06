@@ -11,7 +11,7 @@ def _utcnow() -> datetime:
 
 @dataclass
 class User:
-    family_id: UUID
+    library_id: UUID
     email: str
     password_hash: str
     full_name: str
@@ -30,10 +30,13 @@ class User:
     # being able to demonstrate consent, so the version string accepted and
     # the moment of acceptance are recorded rather than inferred from
     # registration date. None on invited members: their acceptance is implicit
-    # in the admin's, since only the admin can register/delete the family.
+    # in the admin's, since only the admin can register/delete the library.
     consent_privacy_version: str | None = None
     consent_terms_version: str | None = None
     consent_at: datetime | None = None
+    # UX hint only ("land here on next login") — never the source of
+    # authorization, which always comes from an active LibraryMembership.
+    last_selected_library_id: UUID | None = None
     id: UUID = field(default_factory=uuid4)
     created_at: datetime = field(default_factory=_utcnow)
     updated_at: datetime = field(default_factory=_utcnow)

@@ -1,14 +1,14 @@
 {% extends "_base.html" %}
-{% block preheader %}Bienvenue sur Jinbocho — votre bibliothèque familiale est prête.{% endblock %}
+{% block preheader %}Bienvenue sur Jinbocho — votre bibliothèque est prête.{% endblock %}
 {% block content %}
 <h2 class="email-title">Votre bibliothèque est prête</h2>
 <p class="email-meta">Démarrage &middot; Bienvenue</p>
 <p class="email-text">
-  Bienvenue sur Jinbocho&nbsp;! Votre famille <strong>&#x00AB;&nbsp;{{ family_name }}&nbsp;&#x00BB;</strong> a été créée.
+  Bienvenue sur Jinbocho&nbsp;! Votre bibliothèque <strong>&#x00AB;&nbsp;{{ library_name }}&nbsp;&#x00BB;</strong> a été créée.
   Vous pouvez maintenant vous connecter et commencer à cataloguer votre bibliothèque, pièce par pièce, étagère par étagère.
 </p>
 <p class="email-note">
-  Scannez des ISBN, organisez les livres par emplacement, suivez les prêts et l&rsquo;état de lecture &mdash; tout en un seul endroit pour votre famille.
+  Scannez des ISBN, organisez les livres par emplacement, suivez les prêts et l&rsquo;état de lecture &mdash; tout en un seul endroit pour votre bibliothèque.
 </p>
 <table role="presentation" cellpadding="0" cellspacing="0" class="cta-table">
   <tr>
@@ -22,4 +22,4 @@
   <a href="{{ link }}" class="fallback-link">{{ link }}</a>
 </p>
 {% endblock %}
-{% block footer_text %}Gestion de votre bibliothèque familiale{% endblock %}
+{% block footer_text %}Gestion de votre bibliothèque{% endblock %}

@@ -4,8 +4,8 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class RegisterRequest(BaseModel):
-    """Request body for family registration."""
-    family_name: str = Field(min_length=1, max_length=255, description="Family name (e.g., 'Smith Family')")
+    """Request body for library registration."""
+    library_name: str = Field(min_length=1, max_length=255, description="Library name (e.g., 'Smith Library')")
     admin_email: EmailStr = Field(description="Admin user email")
     admin_password: str = Field(min_length=8, description="Admin password (min 8 chars)")
     admin_full_name: str = Field(min_length=1, max_length=255, description="Admin user full name")
@@ -19,7 +19,7 @@ class RegisterRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "family_name": "Smith Family",
+                "library_name": "Smith Library",
                 "admin_email": "john@example.com",
                 "admin_password": "SecurePass123!",
                 "admin_full_name": "John Smith",
@@ -31,14 +31,14 @@ class RegisterRequest(BaseModel):
 
 
 class RegisterResponse(BaseModel):
-    """Response after successful family registration."""
-    family_id: UUID = Field(description="Newly created family ID")
+    """Response after successful library registration."""
+    library_id: UUID = Field(description="Newly created library ID")
     user_id: UUID = Field(description="Newly created admin user ID")
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "family_id": "550e8400-e29b-41d4-a716-446655440000",
+                "library_id": "550e8400-e29b-41d4-a716-446655440000",
                 "user_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
             }
         }
@@ -129,7 +129,7 @@ class UserSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID = Field(description="User ID")
-    family_id: UUID = Field(description="Family the user belongs to")
+    library_id: UUID = Field(description="Library the user belongs to")
     email: EmailStr = Field(description="User email")
     full_name: str = Field(description="User full name")
     role: str = Field(description="User role: admin, editor, or viewer")

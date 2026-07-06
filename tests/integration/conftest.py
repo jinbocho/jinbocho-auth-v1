@@ -35,7 +35,7 @@ def no_real_email(monkeypatch):
 @pytest.fixture(autouse=True)
 def no_rate_limiting():
     """Running the whole file legitimately exceeds /auth/register's 5/minute
-    limit (most tests register a fresh family via test_family_and_user).
+    limit (most tests register a fresh library via test_library_and_user).
     Disable rate limiting for tests; it has no use-case-level behavior to verify."""
     limiter.enabled = False
 
@@ -56,8 +56,8 @@ async def async_client():
 
 
 @pytest.fixture
-async def test_family_and_user(async_client):
-    """Register a test family and user, return family_id and tokens.
+async def test_library_and_user(async_client):
+    """Register a test library and user, return library_id and tokens.
 
     The DB isn't reset between tests, so a hardcoded email would collide
     (409) after the first test that uses this fixture — each call gets its
@@ -67,7 +67,7 @@ async def test_family_and_user(async_client):
     register_response = await async_client.post(
         "/v1/auth/register",
         json={
-            "family_name": "Test Family",
+            "library_name": "Test Library",
             "admin_email": email,
             "admin_password": "Password123!",
             "admin_full_name": "Admin User",
@@ -78,7 +78,7 @@ async def test_family_and_user(async_client):
     assert register_response.status_code == 201
     data = register_response.json()
     return {
-        "family_id": data["family_id"],
+        "library_id": data["library_id"],
         "user_id": data["user_id"],
         "email": email,
         "password": "Password123!",

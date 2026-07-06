@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.dependencies import verify_internal_token
-from app.api.v1.endpoints import auth, families, internal_notifications, users
+from app.api.v1.endpoints import auth, context, libraries, internal_notifications, memberships, users
 
 router = APIRouter()
 router.include_router(
@@ -11,10 +11,22 @@ router.include_router(
     responses={401: {"description": "Unauthorized"}, 403: {"description": "Forbidden"}}
 )
 router.include_router(
-    families.router,
-    prefix="/families",
-    tags=["families"],
-    responses={401: {"description": "Unauthorized"}, 403: {"description": "Forbidden"}, 404: {"description": "Family not found"}}
+    context.router,
+    prefix="/auth/context",
+    tags=["context"],
+    responses={401: {"description": "Unauthorized"}, 403: {"description": "Forbidden"}}
+)
+router.include_router(
+    libraries.router,
+    prefix="/libraries",
+    tags=["libraries"],
+    responses={401: {"description": "Unauthorized"}, 403: {"description": "Forbidden"}, 404: {"description": "Library not found"}}
+)
+router.include_router(
+    memberships.router,
+    prefix="/libraries",
+    tags=["members"],
+    responses={401: {"description": "Unauthorized"}, 403: {"description": "Forbidden"}, 404: {"description": "Membership not found"}}
 )
 router.include_router(
     users.router,

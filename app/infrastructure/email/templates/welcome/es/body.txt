@@ -1,4 +1,4 @@
-¡Bienvenido a Jinbocho! Tu familia "{{ family_name }}" ha sido creada.
+¡Bienvenido a Jinbocho! Tu biblioteca "{{ library_name }}" ha sido creada.
 
 Ya puedes iniciar sesión y empezar a catalogar tu biblioteca:
 

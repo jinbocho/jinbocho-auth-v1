@@ -11,7 +11,7 @@ class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID = Field(description="User ID")
-    family_id: UUID = Field(description="Family the user belongs to")
+    library_id: UUID = Field(description="Library the user belongs to")
     email: EmailStr = Field(description="User email")
     full_name: str = Field(description="User full name")
     role: UserRole = Field(description="User role")

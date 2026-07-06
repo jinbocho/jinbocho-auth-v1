@@ -7,6 +7,13 @@ class UserRole(str, Enum):
     VIEWER = "viewer"
 
 
+class MembershipStatus(str, Enum):
+    INVITED = "invited"
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
+    REVOKED = "revoked"
+
+
 class Language(str, Enum):
     EN = "en"
     IT = "it"

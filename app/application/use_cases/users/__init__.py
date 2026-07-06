@@ -6,8 +6,9 @@ from .list_users import ListUsersUseCase, ListUsersInput, ListUsersOutput
 from .update_user import UpdateUserUseCase, UpdateUserInput, UpdateUserOutput
 from .delete_user import DeleteUserUseCase, DeleteUserInput
 from .resend_invite import ResendInviteUseCase, ResendInviteInput
-from .export_family_data import ExportFamilyDataUseCase, ExportFamilyDataInput, ExportFamilyDataOutput, UserExportData
+from .export_library_data import ExportLibraryDataUseCase, ExportLibraryDataInput, ExportLibraryDataOutput, UserExportData
 from .import_users import ImportUsersUseCase, ImportUsersInput, ImportUsersOutput, ImportUserItem
+from .search_users import SearchUsersUseCase, SearchUsersInput, SearchUsersOutput, UserSearchResult
 
 __all__ = [
     "CreateUserUseCase",
@@ -30,12 +31,16 @@ __all__ = [
     "DeleteUserInput",
     "ResendInviteUseCase",
     "ResendInviteInput",
-    "ExportFamilyDataUseCase",
-    "ExportFamilyDataInput",
-    "ExportFamilyDataOutput",
+    "ExportLibraryDataUseCase",
+    "ExportLibraryDataInput",
+    "ExportLibraryDataOutput",
     "UserExportData",
     "ImportUsersUseCase",
     "ImportUsersInput",
     "ImportUsersOutput",
     "ImportUserItem",
+    "SearchUsersUseCase",
+    "SearchUsersInput",
+    "SearchUsersOutput",
+    "UserSearchResult",
 ]

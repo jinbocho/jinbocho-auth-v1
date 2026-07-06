@@ -2,10 +2,10 @@ import logging
 from dataclasses import dataclass
 from datetime import timedelta
 
-from app.application.services import TokenService
-from app.domain.entities import RefreshToken
+from app.application.services import TokenService, resolve_active_context
+from app.domain.entities import MembershipStatus, RefreshToken
 from app.domain.exceptions import InactiveUserError, InvalidCredentialsError
-from app.domain.repositories import RefreshTokenRepository, UserRepository
+from app.domain.repositories import MembershipRepository, RefreshTokenRepository, UserRepository
 from app.domain.services import PasswordHasher
 
 logger = logging.getLogger(__name__)
@@ -21,17 +21,25 @@ class LoginInput:
 class LoginOutput:
     access_token: str
     refresh_token: str
+    # None when the token is "context-less" (0 or >1 active memberships and no
+    # usable last-selected library) — the frontend must call
+    # GET /auth/context/libraries and POST /auth/context/select before
+    # hitting any catalog/ai-scoped endpoint.
+    library_id: str | None
+    role: str | None
 
 
 class LoginUseCase:
     def __init__(
         self,
         user_repo: UserRepository,
+        membership_repo: MembershipRepository,
         refresh_token_repo: RefreshTokenRepository,
         token_service: TokenService,
         password_hasher: PasswordHasher,
     ):
         self._user_repo = user_repo
+        self._membership_repo = membership_repo
         self._refresh_token_repo = refresh_token_repo
         self._token_service = token_service
         self._password_hasher = password_hasher
@@ -45,9 +53,19 @@ class LoginUseCase:
             logger.warning("Login attempt by inactive user %s", user.id)
             raise InactiveUserError("User is inactive")
 
-        access_token = self._token_service.create_access_token(
-            str(user.id), user.email, str(user.family_id), user.role
-        )
+        active_memberships = await self._membership_repo.find_by_user(user.id, [MembershipStatus.ACTIVE])
+        context = resolve_active_context(user.last_selected_library_id, active_memberships)
+
+        library_id: str | None = None
+        role: str | None = None
+        if context is not None:
+            chosen_library_id, chosen_role = context
+            library_id, role = str(chosen_library_id), chosen_role.value
+            chosen_membership = next(m for m in active_memberships if m.library_id == chosen_library_id)
+            chosen_membership.last_accessed_at = self._token_service.utcnow()
+            await self._membership_repo.save(chosen_membership)
+
+        access_token = self._token_service.create_access_token(str(user.id), user.email, library_id, role)
         refresh_token = self._token_service.create_refresh_token()
 
         token_entity = RefreshToken(
@@ -57,4 +75,4 @@ class LoginUseCase:
         )
         await self._refresh_token_repo.save(token_entity)
         logger.info("User %s logged in", user.id)
-        return LoginOutput(access_token=access_token, refresh_token=refresh_token)
+        return LoginOutput(access_token=access_token, refresh_token=refresh_token, library_id=library_id, role=role)

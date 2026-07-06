@@ -28,15 +28,15 @@ async def _invite_user(async_client, token: str, email: str, role: str = "viewer
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_list_users_returns_family_members(async_client, test_family_and_user):
-    token = await _login(async_client, test_family_and_user["email"], test_family_and_user["password"])
+async def test_list_users_returns_library_members(async_client, test_library_and_user):
+    token = await _login(async_client, test_library_and_user["email"], test_library_and_user["password"])
 
     response = await async_client.get("/v1/users", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     users = response.json()
     assert isinstance(users, list)
     emails = [u["email"] for u in users]
-    assert test_family_and_user["email"] in emails
+    assert test_library_and_user["email"] in emails
 
 
 @pytest.mark.asyncio
@@ -50,8 +50,8 @@ async def test_list_users_requires_authentication(async_client):
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_admin_can_update_user_role(async_client, test_family_and_user):
-    token = await _login(async_client, test_family_and_user["email"], test_family_and_user["password"])
+async def test_admin_can_update_user_role(async_client, test_library_and_user):
+    token = await _login(async_client, test_library_and_user["email"], test_library_and_user["password"])
     invited = await _invite_user(async_client, token, f"role-test-{uuid4().hex}@test.com", role="viewer")
 
     response = await async_client.patch(
@@ -64,8 +64,8 @@ async def test_admin_can_update_user_role(async_client, test_family_and_user):
 
 
 @pytest.mark.asyncio
-async def test_non_admin_cannot_update_other_user(async_client, test_family_and_user, capsys):
-    admin_token = await _login(async_client, test_family_and_user["email"], test_family_and_user["password"])
+async def test_non_admin_cannot_update_other_user(async_client, test_library_and_user, capsys):
+    admin_token = await _login(async_client, test_library_and_user["email"], test_library_and_user["password"])
     viewer = await _invite_user(async_client, admin_token, f"viewer-{uuid4().hex}@test.com", role="viewer")
 
     # Set viewer's password so they can log in
@@ -86,9 +86,9 @@ async def test_non_admin_cannot_update_other_user(async_client, test_family_and_
 
 
 @pytest.mark.asyncio
-async def test_cannot_demote_sole_admin(async_client, test_family_and_user):
+async def test_cannot_demote_sole_admin(async_client, test_library_and_user):
     """Last admin protection: demoting the only admin must return 409."""
-    admin_token = await _login(async_client, test_family_and_user["email"], test_family_and_user["password"])
+    admin_token = await _login(async_client, test_library_and_user["email"], test_library_and_user["password"])
     admin_user = (await async_client.get("/v1/users/me", headers={"Authorization": f"Bearer {admin_token}"})).json()
 
     response = await async_client.patch(
@@ -100,9 +100,9 @@ async def test_cannot_demote_sole_admin(async_client, test_family_and_user):
 
 
 @pytest.mark.asyncio
-async def test_cannot_delete_sole_admin(async_client, test_family_and_user):
+async def test_cannot_delete_sole_admin(async_client, test_library_and_user):
     """Last admin protection: deleting the only admin must return 409."""
-    admin_token = await _login(async_client, test_family_and_user["email"], test_family_and_user["password"])
+    admin_token = await _login(async_client, test_library_and_user["email"], test_library_and_user["password"])
     admin_user = (await async_client.get("/v1/users/me", headers={"Authorization": f"Bearer {admin_token}"})).json()
 
     response = await async_client.delete(
@@ -113,9 +113,9 @@ async def test_cannot_delete_sole_admin(async_client, test_family_and_user):
 
 
 @pytest.mark.asyncio
-async def test_invite_duplicate_email_returns_409(async_client, test_family_and_user):
+async def test_invite_duplicate_email_returns_409(async_client, test_library_and_user):
     """Inviting a user with an already-registered email returns 409."""
-    token = await _login(async_client, test_family_and_user["email"], test_family_and_user["password"])
+    token = await _login(async_client, test_library_and_user["email"], test_library_and_user["password"])
     email = f"dup-invite-{uuid4().hex}@test.com"
     await _invite_user(async_client, token, email, role="viewer")
 
@@ -132,8 +132,8 @@ async def test_invite_duplicate_email_returns_409(async_client, test_family_and_
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_resend_invite_sends_new_link(async_client, test_family_and_user, capsys):
-    admin_token = await _login(async_client, test_family_and_user["email"], test_family_and_user["password"])
+async def test_resend_invite_sends_new_link(async_client, test_library_and_user, capsys):
+    admin_token = await _login(async_client, test_library_and_user["email"], test_library_and_user["password"])
     invited = await _invite_user(async_client, admin_token, f"resend-{uuid4().hex}@test.com")
     capsys.readouterr()  # discard first invite email
 
@@ -149,8 +149,8 @@ async def test_resend_invite_sends_new_link(async_client, test_family_and_user, 
 
 
 @pytest.mark.asyncio
-async def test_resend_invite_rejects_user_who_set_password(async_client, test_family_and_user, capsys):
-    admin_token = await _login(async_client, test_family_and_user["email"], test_family_and_user["password"])
+async def test_resend_invite_rejects_user_who_set_password(async_client, test_library_and_user, capsys):
+    admin_token = await _login(async_client, test_library_and_user["email"], test_library_and_user["password"])
     invited = await _invite_user(async_client, admin_token, f"setpwd-{uuid4().hex}@test.com")
 
     output = capsys.readouterr().out
@@ -170,24 +170,24 @@ async def test_resend_invite_rejects_user_who_set_password(async_client, test_fa
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_export_family_data_returns_roster(async_client, test_family_and_user):
-    admin_token = await _login(async_client, test_family_and_user["email"], test_family_and_user["password"])
+async def test_export_library_data_returns_roster(async_client, test_library_and_user):
+    admin_token = await _login(async_client, test_library_and_user["email"], test_library_and_user["password"])
 
     response = await async_client.get("/v1/users/export", headers={"Authorization": f"Bearer {admin_token}"})
     assert response.status_code == 200
     data = response.json()
-    assert "family" in data
+    assert "library" in data
     assert "users" in data
     assert isinstance(data["users"], list)
     emails = [u["email"] for u in data["users"]]
-    assert test_family_and_user["email"] in emails
+    assert test_library_and_user["email"] in emails
     for user in data["users"]:
         assert "password_hash" not in user
 
 
 @pytest.mark.asyncio
-async def test_export_non_admin_returns_403(async_client, test_family_and_user, capsys):
-    admin_token = await _login(async_client, test_family_and_user["email"], test_family_and_user["password"])
+async def test_export_non_admin_returns_403(async_client, test_library_and_user, capsys):
+    admin_token = await _login(async_client, test_library_and_user["email"], test_library_and_user["password"])
     invited = await _invite_user(async_client, admin_token, f"exp-viewer-{uuid4().hex}@test.com")
 
     output = capsys.readouterr().out
@@ -201,8 +201,8 @@ async def test_export_non_admin_returns_403(async_client, test_family_and_user, 
 
 
 @pytest.mark.asyncio
-async def test_import_users_matches_existing_and_creates_new(async_client, test_family_and_user, capsys):
-    admin_token = await _login(async_client, test_family_and_user["email"], test_family_and_user["password"])
+async def test_import_users_matches_existing_and_creates_new(async_client, test_library_and_user, capsys):
+    admin_token = await _login(async_client, test_library_and_user["email"], test_library_and_user["password"])
 
     export_response = await async_client.get("/v1/users/export", headers={"Authorization": f"Bearer {admin_token}"})
     exported = export_response.json()

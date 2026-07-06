@@ -7,8 +7,8 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from app.domain.entities.enums import Language, ThemeMode, ThemeName, UserRole
 
 
-class FamilyExportItem(BaseModel):
-    """Family identity, exported for display only (never overwritten on import)."""
+class LibraryExportItem(BaseModel):
+    """Library identity, exported for display only (never overwritten on import)."""
     id: UUID
     name: str
     description: Optional[str] = None
@@ -17,7 +17,7 @@ class FamilyExportItem(BaseModel):
 
 
 class UserExportItem(BaseModel):
-    """A family member. Used both to restore a backup (users are matched by
+    """A library member. Used both to restore a backup (users are matched by
     email — matched, not re-created — or invited like the normal 'invite
     user' flow) and as the auth-service part of the GDPR Art. 15/20 'download
     my data' bundle — the audit/consent fields below exist for the latter and
@@ -41,16 +41,16 @@ class UserExportItem(BaseModel):
     updated_at: Optional[datetime] = None
 
 
-class FamilyDataExportResponse(BaseModel):
+class LibraryDataExportResponse(BaseModel):
     schema_version: int = 1
-    family: FamilyExportItem
+    library: LibraryExportItem
     users: list[UserExportItem]
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "schema_version": 1,
-                "family": {"id": "...", "name": "The Smiths", "description": None},
+                "library": {"id": "...", "name": "The Smiths", "description": None},
                 "users": [
                     {
                         "id": "...",

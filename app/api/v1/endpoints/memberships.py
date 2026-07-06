@@ -1,0 +1,186 @@
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from app.api.dependencies import (
+    JWTPayload,
+    get_get_member_use_case,
+    get_invite_member_use_case,
+    get_list_members_use_case,
+    get_remove_membership_use_case,
+    get_search_members_use_case,
+    get_update_membership_use_case,
+    require_library_context,
+    require_role,
+)
+from app.api.v1.schemas.context_schemas import (
+    InviteMemberRequest,
+    MemberProfileResponse,
+    MemberResponse,
+    MemberSearchResultResponse,
+    UpdateMembershipRequest,
+)
+from app.application.use_cases.memberships import (
+    GetMemberInput,
+    GetMemberUseCase,
+    InviteMemberInput,
+    InviteMemberUseCase,
+    ListMembersInput,
+    ListMembersUseCase,
+    RemoveMembershipInput,
+    RemoveMembershipUseCase,
+    SearchMembersInput,
+    SearchMembersUseCase,
+    UpdateMembershipInput,
+    UpdateMembershipUseCase,
+)
+from app.domain.entities import MembershipStatus, UserRole
+
+router = APIRouter()
+
+
+def _require_same_library(payload: JWTPayload, library_id: UUID) -> None:
+    if UUID(payload["library_id"]) != library_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot manage another library's members")
+
+
+@router.get(
+    "/{library_id}/members/search",
+    response_model=list[MemberSearchResultResponse],
+    summary="Typeahead search across this library's active members",
+    description="Powers 'lend this book to a Jinbocho user' — any active member can search "
+    "(not admin-only, unlike the full roster), since anyone can register a loan. Requires at "
+    "least 2 characters; returns at most `limit` (default 3) results."
+)
+async def search_members(
+    library_id: UUID,
+    q: str,
+    limit: int = 3,
+    payload: JWTPayload = Depends(require_library_context),
+    use_case: SearchMembersUseCase = Depends(get_search_members_use_case),
+) -> list[MemberSearchResultResponse]:
+    _require_same_library(payload, library_id)
+    result = await use_case.execute(SearchMembersInput(library_id=library_id, query=q, limit=min(limit, 10)))
+    return [
+        MemberSearchResultResponse(
+            user_id=r.user_id, full_name=r.full_name, email=r.email, role=r.role.value, avatar_url=r.avatar_url,
+        )
+        for r in result.results
+    ]
+
+
+@router.get(
+    "/{library_id}/members",
+    response_model=list[MemberResponse],
+    summary="List library members",
+    description="Membership-based roster: includes members whose only relationship to this "
+    "library is a membership row, not the legacy users.library_id scalar. Requires admin role."
+)
+async def list_members(
+    library_id: UUID,
+    payload: JWTPayload = Depends(require_role("admin")),
+    use_case: ListMembersUseCase = Depends(get_list_members_use_case),
+) -> list[MemberResponse]:
+    _require_same_library(payload, library_id)
+    result = await use_case.execute(ListMembersInput(library_id=library_id))
+    return [
+        MemberResponse(
+            membership_id=m.membership_id, user_id=m.user_id, email=m.email, full_name=m.full_name,
+            role=m.role.value, status=m.status.value, joined_at=m.joined_at, last_accessed_at=m.last_accessed_at,
+            avatar_url=m.avatar_url,
+        )
+        for m in result.members
+    ]
+
+
+@router.get(
+    "/{library_id}/members/{user_id}",
+    response_model=MemberProfileResponse,
+    summary="Get a single member's basic profile",
+    description="Open to any active member (unlike the full roster, which is admin-only) — "
+    "powers viewing a fellow member's page, e.g. clicked from a loan's borrower name."
+)
+async def get_member(
+    library_id: UUID,
+    user_id: UUID,
+    payload: JWTPayload = Depends(require_library_context),
+    use_case: GetMemberUseCase = Depends(get_get_member_use_case),
+) -> MemberProfileResponse:
+    _require_same_library(payload, library_id)
+    result = await use_case.execute(GetMemberInput(library_id=library_id, user_id=user_id))
+    return MemberProfileResponse(
+        user_id=result.user_id, full_name=result.full_name, email=result.email,
+        role=result.role.value, avatar_url=result.avatar_url, joined_at=result.joined_at,
+    )
+
+
+@router.post(
+    "/{library_id}/members",
+    response_model=MemberResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Invite a member to this library",
+    description="If the email already has an account (accounts are global), adds a pending "
+    "membership to it — no new account or password flow. Otherwise creates a new account and "
+    "emails a password-setup link, exactly like the legacy invite flow. Requires admin role."
+)
+async def invite_member(
+    library_id: UUID,
+    request: InviteMemberRequest,
+    payload: JWTPayload = Depends(require_role("admin")),
+    use_case: InviteMemberUseCase = Depends(get_invite_member_use_case),
+) -> MemberResponse:
+    _require_same_library(payload, library_id)
+    result = await use_case.execute(
+        InviteMemberInput(
+            library_id=library_id,
+            invited_by=UUID(payload["sub"]),
+            email=request.email,
+            full_name=request.full_name,
+            role=UserRole(request.role),
+        )
+    )
+    return MemberResponse(
+        membership_id=result.membership_id, user_id=result.user_id, email=result.email,
+        full_name=request.full_name or result.email, role=result.role.value, status=result.status.value,
+    )
+
+
+@router.patch(
+    "/{library_id}/members/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Change a member's role or suspend/reactivate them",
+    description="Refuses to demote or suspend the library's last active admin. Requires admin role."
+)
+async def update_membership(
+    library_id: UUID,
+    user_id: UUID,
+    request: UpdateMembershipRequest,
+    payload: JWTPayload = Depends(require_role("admin")),
+    use_case: UpdateMembershipUseCase = Depends(get_update_membership_use_case),
+) -> None:
+    _require_same_library(payload, library_id)
+    await use_case.execute(
+        UpdateMembershipInput(
+            library_id=library_id,
+            target_user_id=user_id,
+            role=UserRole(request.role) if request.role else None,
+            status=MembershipStatus(request.status) if request.status else None,
+        )
+    )
+
+
+@router.delete(
+    "/{library_id}/members/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Revoke a member's access to this library",
+    description="Soft-delete: the membership row is kept (status=revoked) for audit, the "
+    "global user account is untouched. Refuses to remove the last active admin. Requires admin role."
+)
+async def remove_member(
+    library_id: UUID,
+    user_id: UUID,
+    payload: JWTPayload = Depends(require_role("admin")),
+    use_case: RemoveMembershipUseCase = Depends(get_remove_membership_use_case),
+) -> None:
+    _require_same_library(payload, library_id)
+    await use_case.execute(RemoveMembershipInput(library_id=library_id, target_user_id=user_id))

@@ -33,8 +33,8 @@ class _IPv4SMTP(smtplib.SMTP):
         self, host: str, port: int, timeout: float
     ) -> socket.socket:
         addr_info = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
-        family, socktype, proto, _, sockaddr = addr_info[0]
-        sock = socket.socket(family, socktype, proto)
+        library, socktype, proto, _, sockaddr = addr_info[0]
+        sock = socket.socket(library, socktype, proto)
         if timeout is not None:
             sock.settimeout(timeout)
         sock.connect(sockaddr)
@@ -87,14 +87,14 @@ class EmailSender:
     def send_welcome_email(
         self,
         to_email: str,
-        family_name: str,
+        library_name: str,
         link: str,
         language: str | None = None,
     ) -> None:
-        """Notify the admin who just registered a new family — no token
+        """Notify the admin who just registered a new library — no token
         involved, the admin already chose their password during registration."""
         email = self._renderer.render(
-            "welcome", language, {"family_name": family_name, "link": link}
+            "welcome", language, {"library_name": library_name, "link": link}
         )
         self._send(
             to_email,
@@ -102,6 +102,29 @@ class EmailSender:
             body_text=email.body_text,
             body_html=email.body_html,
             log_context="welcome email",
+            console_link=link,
+        )
+
+    def send_library_invite_email(
+        self,
+        to_email: str,
+        library_name: str,
+        inviter_name: str,
+        link: str,
+        language: str | None = None,
+    ) -> None:
+        """Tell an existing account they've been added to another library.
+        No token/link involved: they already have credentials, they just log
+        in and the new library shows up in their picker/switcher."""
+        email = self._renderer.render(
+            "library_invite", language, {"library_name": library_name, "inviter_name": inviter_name, "link": link}
+        )
+        self._send(
+            to_email,
+            subject=email.subject,
+            body_text=email.body_text,
+            body_html=email.body_html,
+            log_context="library invite email",
             console_link=link,
         )
 
@@ -113,7 +136,7 @@ class EmailSender:
         due_date: datetime,
         language: str | None = None,
     ) -> None:
-        """Tell the family a book they lent out is due back soon. No
+        """Tell the library a book they lent out is due back soon. No
         token/link involved — this is informational, not actionable."""
         email = self._renderer.render(
             "loan_reminder",

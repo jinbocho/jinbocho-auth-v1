@@ -2,10 +2,10 @@ import logging
 from dataclasses import dataclass
 from datetime import timedelta
 
-from app.application.services import TokenService
-from app.domain.entities import RefreshToken
+from app.application.services import TokenService, resolve_active_context
+from app.domain.entities import MembershipStatus, RefreshToken
 from app.domain.exceptions import InactiveUserError, InvalidCredentialsError
-from app.domain.repositories import RefreshTokenRepository, UserRepository
+from app.domain.repositories import MembershipRepository, RefreshTokenRepository, UserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -19,16 +19,20 @@ class RefreshTokenInput:
 class RefreshTokenOutput:
     access_token: str
     refresh_token: str
+    library_id: str | None
+    role: str | None
 
 
 class RefreshTokenUseCase:
     def __init__(
         self,
         user_repo: UserRepository,
+        membership_repo: MembershipRepository,
         refresh_token_repo: RefreshTokenRepository,
         token_service: TokenService,
     ):
         self._user_repo = user_repo
+        self._membership_repo = membership_repo
         self._refresh_token_repo = refresh_token_repo
         self._token_service = token_service
 
@@ -50,9 +54,23 @@ class RefreshTokenUseCase:
 
         await self._refresh_token_repo.revoke(token_hash)
 
-        access_token = self._token_service.create_access_token(
-            str(user.id), user.email, str(user.family_id), user.role
-        )
+        # Re-resolve on every refresh, not just at login: a membership
+        # suspended/revoked while the access token was still live must not
+        # survive past the next refresh — this is the enforcement point that
+        # bounds the exposure window described in the plan's authz section.
+        active_memberships = await self._membership_repo.find_by_user(user.id, [MembershipStatus.ACTIVE])
+        context = resolve_active_context(user.last_selected_library_id, active_memberships)
+
+        library_id: str | None = None
+        role: str | None = None
+        if context is not None:
+            chosen_library_id, chosen_role = context
+            library_id, role = str(chosen_library_id), chosen_role.value
+            chosen_membership = next(m for m in active_memberships if m.library_id == chosen_library_id)
+            chosen_membership.last_accessed_at = now
+            await self._membership_repo.save(chosen_membership)
+
+        access_token = self._token_service.create_access_token(str(user.id), user.email, library_id, role)
         new_refresh_token = self._token_service.create_refresh_token()
 
         new_token_entity = RefreshToken(
@@ -62,4 +80,6 @@ class RefreshTokenUseCase:
         )
         await self._refresh_token_repo.save(new_token_entity)
         logger.debug("Refresh token rotated for user %s", user.id)
-        return RefreshTokenOutput(access_token=access_token, refresh_token=new_refresh_token)
+        return RefreshTokenOutput(
+            access_token=access_token, refresh_token=new_refresh_token, library_id=library_id, role=role
+        )

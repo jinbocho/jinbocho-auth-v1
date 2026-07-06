@@ -5,8 +5,9 @@ from uuid import UUID
 
 from app.application.ports import EmailService
 from app.application.services import TokenService, issue_password_setup_link
+from app.domain.entities.enums import MembershipStatus
 from app.domain.exceptions import EntityNotFoundError, InvalidResetTokenError
-from app.domain.repositories import PasswordResetTokenRepository, UserRepository
+from app.domain.repositories import MembershipRepository, PasswordResetTokenRepository, UserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -14,13 +15,14 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ResendInviteInput:
     user_id: UUID
-    requester_family_id: UUID
+    requester_library_id: UUID
 
 
 class ResendInviteUseCase:
     def __init__(
         self,
         user_repo: UserRepository,
+        membership_repo: MembershipRepository,
         reset_token_repo: PasswordResetTokenRepository,
         email_sender: EmailService,
         token_service: TokenService,
@@ -28,6 +30,7 @@ class ResendInviteUseCase:
         frontend_base_url: str,
     ):
         self._user_repo = user_repo
+        self._membership_repo = membership_repo
         self._reset_token_repo = reset_token_repo
         self._email_sender = email_sender
         self._token_service = token_service
@@ -36,7 +39,10 @@ class ResendInviteUseCase:
 
     async def execute(self, input: ResendInviteInput) -> None:
         user = await self._user_repo.find_by_id(input.user_id)
-        if not user or user.family_id != input.requester_family_id:
+        if not user:
+            raise EntityNotFoundError("User not found")
+        membership = await self._membership_repo.find_by_user_and_library(user.id, input.requester_library_id)
+        if membership is None or membership.status != MembershipStatus.ACTIVE:
             raise EntityNotFoundError("User not found")
 
         if user.password_set_at is not None:

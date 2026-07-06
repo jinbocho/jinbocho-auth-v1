@@ -15,19 +15,29 @@ class TokenService:
     def __init__(self, settings: Settings):
         self._settings = settings
 
-    def create_access_token(self, user_id: str, email: str, family_id: str, role: str) -> str:
-        """Create a signed JWT access token."""
+    def create_access_token(self, user_id: str, email: str, library_id: str | None, role: str | None) -> str:
+        """Create a signed JWT access token.
+
+        library_id/role are omitted (not merely null) when the user hasn't
+        selected an active library yet — a "context-less" token. Such a token
+        authenticates the user but authorizes nothing tenant-scoped: catalog
+        and ai-service already `require` the library_id claim to be present,
+        so a context-less token is rejected by them automatically without any
+        change on their side.
+        """
         now = self.utcnow()
         payload = {
             "sub": user_id,
             "email": email,
-            "family_id": family_id,
-            "role": role,
             "iss": self._settings.jwt_issuer,
             "aud": self._settings.jwt_audience,
             "iat": now,
             "exp": now + timedelta(minutes=self._settings.access_token_expire_minutes),
         }
+        if library_id is not None:
+            payload["library_id"] = library_id
+        if role is not None:
+            payload["role"] = role
         return jwt.encode(payload, self._settings.jwt_secret_key, algorithm=self._settings.jwt_algorithm)
 
     def create_refresh_token(self) -> str:

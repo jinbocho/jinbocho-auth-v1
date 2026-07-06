@@ -1,10 +1,10 @@
 """Semantic exceptions raised by use cases and domain services.
 
-Each subclasses one of the builtin exception families already mandated by
+Each subclasses one of the builtin exception libraries already mandated by
 the project (LookupError / PermissionError / ValueError) so existing
 `pytest.raises(LookupError)`-style assertions keep working, while still
 letting `app/core/exception_handlers.py` map each concrete case to its own
-HTTP status code instead of collapsing everything to one status per family.
+HTTP status code instead of collapsing everything to one status per library.
 """
 
 
@@ -24,12 +24,18 @@ class ForbiddenError(PermissionError):
     """The authenticated user is not allowed to act on this specific resource."""
 
 
+class NotAMemberError(PermissionError):
+    """The authenticated user has no active membership in the target library —
+    covers both "never invited" and "invited/suspended/revoked" states, since
+    the caller must not learn which one it is (would leak membership existence)."""
+
+
 class IncorrectPasswordError(PermissionError):
     """A re-authentication check (e.g. before a destructive action) failed."""
 
 
 class ConfirmationMismatchError(ValueError):
-    """A typed confirmation value (e.g. the family name) did not match."""
+    """A typed confirmation value (e.g. the library name) did not match."""
 
 
 class EmailAlreadyRegisteredError(ValueError):
@@ -37,7 +43,7 @@ class EmailAlreadyRegisteredError(ValueError):
 
 
 class LastAdminError(ValueError):
-    """Refused: this would leave the family with no active admin."""
+    """Refused: this would leave the library with no active admin."""
 
 
 class InvalidResetTokenError(ValueError):

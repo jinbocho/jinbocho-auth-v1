@@ -1,14 +1,14 @@
 import logging
 import secrets
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from app.application.ports import EmailService
 from app.application.services import TokenService, issue_password_setup_link
-from app.domain.entities import User, UserRole
+from app.domain.entities import LibraryMembership, MembershipStatus, User, UserRole
 from app.domain.exceptions import EmailAlreadyRegisteredError
-from app.domain.repositories import PasswordResetTokenRepository, UserRepository
+from app.domain.repositories import MembershipRepository, PasswordResetTokenRepository, UserRepository
 from app.domain.services import PasswordHasher
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class CreateUserInput:
-    family_id: UUID
+    library_id: UUID
     email: str
     full_name: str
     role: UserRole
@@ -25,7 +25,7 @@ class CreateUserInput:
 @dataclass
 class CreateUserOutput:
     id: UUID
-    family_id: UUID
+    library_id: UUID
     email: str
     full_name: str
     role: UserRole
@@ -34,9 +34,18 @@ class CreateUserOutput:
 
 
 class CreateUserUseCase:
+    """Legacy single-library invite path — still used internally by
+    ImportUsersUseCase to recreate users during a backup restore. Also
+    creates the corresponding LibraryMembership row (active, matching the
+    legacy scalar) so every user this creates is reachable by the same
+    membership-based checks the rest of the app now uses (GetUserUseCase,
+    UpdateUserUseCase, etc.) — without it, the UpdateUserInput call that
+    ImportUsersUseCase makes right after this would 404."""
+
     def __init__(
         self,
         user_repo: UserRepository,
+        membership_repo: MembershipRepository,
         reset_token_repo: PasswordResetTokenRepository,
         email_sender: EmailService,
         token_service: TokenService,
@@ -45,6 +54,7 @@ class CreateUserUseCase:
         frontend_base_url: str,
     ):
         self._user_repo = user_repo
+        self._membership_repo = membership_repo
         self._reset_token_repo = reset_token_repo
         self._email_sender = email_sender
         self._token_service = token_service
@@ -61,14 +71,23 @@ class CreateUserUseCase:
         # hash is stored as a placeholder (unusable until they set their own
         # via the invite link) instead of an admin-picked password.
         user = User(
-            family_id=input.family_id,
+            library_id=input.library_id,
             email=input.email,
             password_hash=self._password_hasher.hash(secrets.token_urlsafe(32)),
             full_name=input.full_name,
             role=UserRole(input.role),
+            last_selected_library_id=input.library_id,
         )
         saved_user = await self._user_repo.save(user)
-        logger.info("User %s invited to family %s with role %s", saved_user.id, input.family_id, input.role)
+
+        now = datetime.now(timezone.utc)
+        await self._membership_repo.save(
+            LibraryMembership(
+                user_id=saved_user.id, library_id=input.library_id, role=UserRole(input.role),
+                status=MembershipStatus.ACTIVE, joined_at=now,
+            )
+        )
+        logger.info("User %s invited to library %s with role %s", saved_user.id, input.library_id, input.role)
 
         await issue_password_setup_link(
             saved_user,
@@ -82,7 +101,7 @@ class CreateUserUseCase:
 
         return CreateUserOutput(
             id=saved_user.id,
-            family_id=saved_user.family_id,
+            library_id=saved_user.library_id,
             email=saved_user.email,
             full_name=saved_user.full_name,
             role=saved_user.role,

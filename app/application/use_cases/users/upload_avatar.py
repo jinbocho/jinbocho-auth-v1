@@ -6,7 +6,8 @@ from uuid import UUID
 
 from PIL import Image
 
-from app.domain.repositories import UserRepository
+from app.domain.entities.enums import MembershipStatus
+from app.domain.repositories import MembershipRepository, UserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -18,14 +19,15 @@ _TARGET_PX = 200
 @dataclass
 class UploadAvatarInput:
     user_id: UUID
-    family_id: UUID
+    library_id: UUID
     image_bytes: bytes
     content_type: str
 
 
 class UploadAvatarUseCase:
-    def __init__(self, user_repo: UserRepository) -> None:
+    def __init__(self, user_repo: UserRepository, membership_repo: MembershipRepository) -> None:
         self._user_repo = user_repo
+        self._membership_repo = membership_repo
 
     async def execute(self, inp: UploadAvatarInput) -> str:
         if inp.content_type not in _ALLOWED_TYPES:
@@ -34,7 +36,10 @@ class UploadAvatarUseCase:
             raise ValueError("Image too large (max 2 MB)")
 
         user = await self._user_repo.find_by_id(inp.user_id)
-        if not user or user.family_id != inp.family_id:
+        if not user:
+            raise LookupError("User not found")
+        membership = await self._membership_repo.find_by_user_and_library(user.id, inp.library_id)
+        if membership is None or membership.status != MembershipStatus.ACTIVE:
             raise LookupError("User not found")
 
         img = Image.open(io.BytesIO(inp.image_bytes)).convert("RGB")

@@ -5,7 +5,7 @@ from app.api.dependencies import (
     get_login_use_case,
     get_logout_use_case,
     get_refresh_token_use_case,
-    get_register_family_use_case,
+    get_register_library_use_case,
     get_reset_password_use_case,
 )
 from app.api.v1.schemas.auth_schemas import (
@@ -25,8 +25,8 @@ from app.application.use_cases.auth import (
     LogoutUseCase,
     RefreshTokenInput,
     RefreshTokenUseCase,
-    RegisterFamilyInput,
-    RegisterFamilyUseCase,
+    RegisterLibraryInput,
+    RegisterLibraryUseCase,
     RequestPasswordResetInput,
     RequestPasswordResetUseCase,
     ResetPasswordInput,
@@ -41,21 +41,21 @@ router = APIRouter()
     "/register",
     response_model=RegisterResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Register new family",
-    description="Register a new family and create the admin user. Requires valid email and password.",
+    summary="Register new library",
+    description="Register a new library and create the admin user. Requires valid email and password.",
     responses={
         409: {"description": "Email already registered"},
     }
 )
 @limiter.limit("5/minute")
-async def register_family(
+async def register_library(
     request: Request,
     body: RegisterRequest,
-    use_case: RegisterFamilyUseCase = Depends(get_register_family_use_case),
+    use_case: RegisterLibraryUseCase = Depends(get_register_library_use_case),
 ) -> RegisterResponse:
     result = await use_case.execute(
-        RegisterFamilyInput(
-            family_name=body.family_name,
+        RegisterLibraryInput(
+            library_name=body.library_name,
             admin_email=body.admin_email,
             admin_password=body.admin_password,
             admin_full_name=body.admin_full_name,
@@ -63,7 +63,7 @@ async def register_family(
             accepted_terms_version=body.accepted_terms_version,
         )
     )
-    return RegisterResponse(family_id=result.family_id, user_id=result.user_id)
+    return RegisterResponse(library_id=result.library_id, user_id=result.user_id)
 
 
 @router.post(

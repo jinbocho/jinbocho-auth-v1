@@ -24,6 +24,7 @@ from app.domain.exceptions import (
     InvalidCredentialsError,
     InvalidResetTokenError,
     LastAdminError,
+    NotAMemberError,
 )
 
 
@@ -64,11 +65,12 @@ def configure_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(IncorrectPasswordError, _make_handler(status.HTTP_401_UNAUTHORIZED))
     app.add_exception_handler(InactiveUserError, _make_handler(status.HTTP_403_FORBIDDEN))
     app.add_exception_handler(ForbiddenError, _make_handler(status.HTTP_403_FORBIDDEN))
+    app.add_exception_handler(NotAMemberError, _make_handler(status.HTTP_403_FORBIDDEN))
     app.add_exception_handler(EntityNotFoundError, _make_handler(status.HTTP_404_NOT_FOUND))
     app.add_exception_handler(ConfirmationMismatchError, _make_handler(status.HTTP_400_BAD_REQUEST))
     app.add_exception_handler(InvalidResetTokenError, _make_handler(status.HTTP_400_BAD_REQUEST))
     app.add_exception_handler(EmailAlreadyRegisteredError, _make_handler(status.HTTP_409_CONFLICT))
     app.add_exception_handler(LastAdminError, _make_handler(status.HTTP_409_CONFLICT))
-    # RegisterFamilyUseCase relies on the DB's unique constraint on email
+    # RegisterLibraryUseCase relies on the DB's unique constraint on email
     # instead of a pre-check, so the conflict surfaces as an IntegrityError.
     app.add_exception_handler(IntegrityError, _handle_integrity_error)

@@ -1,24 +1,27 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, Depends, File, Request, UploadFile, status
 
 from app.api.dependencies import (
     JWTPayload,
     get_create_user_use_case,
-    get_current_user_payload,
     get_delete_avatar_use_case,
     get_delete_user_use_case,
-    get_family_repository,
+    get_library_repository,
     get_import_users_use_case,
+    get_membership_repository,
     get_resend_invite_use_case,
+    get_search_users_use_case,
     get_update_user_use_case,
     get_upload_avatar_use_case,
     get_user_repository,
+    require_library_context,
     require_role,
 )
+from app.api.v1.schemas.context_schemas import GlobalUserSearchResultResponse
 from app.api.v1.schemas.export_schemas import (
-    FamilyDataExportResponse,
-    FamilyExportItem,
+    LibraryDataExportResponse,
+    LibraryExportItem,
     ImportUsersRequest,
     ImportUsersResponse,
     UserExportItem,
@@ -31,8 +34,8 @@ from app.application.use_cases.users import (
     DeleteAvatarUseCase,
     DeleteUserInput,
     DeleteUserUseCase,
-    ExportFamilyDataInput,
-    ExportFamilyDataUseCase,
+    ExportLibraryDataInput,
+    ExportLibraryDataUseCase,
     GetUserInput,
     GetUserUseCase,
     ImportUserItem,
@@ -42,13 +45,16 @@ from app.application.use_cases.users import (
     ListUsersUseCase,
     ResendInviteInput,
     ResendInviteUseCase,
+    SearchUsersInput,
+    SearchUsersUseCase,
     UpdateUserInput,
     UpdateUserUseCase,
     UploadAvatarInput,
     UploadAvatarUseCase,
 )
 from app.domain.entities import User
-from app.domain.repositories import FamilyRepository, UserRepository
+from app.domain.repositories import LibraryRepository, MembershipRepository, UserRepository
+from app.limiter import limiter
 
 router = APIRouter()
 
@@ -60,12 +66,13 @@ router = APIRouter()
     description="Get current authenticated user's information."
 )
 async def get_me(
-    payload: JWTPayload = Depends(get_current_user_payload),
+    payload: JWTPayload = Depends(require_library_context),
     user_repo: UserRepository = Depends(get_user_repository),
+    membership_repo: MembershipRepository = Depends(get_membership_repository),
 ) -> UserResponse:
-    use_case = GetUserUseCase(user_repo)
+    use_case = GetUserUseCase(user_repo, membership_repo)
     result = await use_case.execute(
-        GetUserInput(user_id=UUID(payload["sub"]), requester_family_id=UUID(payload["family_id"]))
+        GetUserInput(user_id=UUID(payload["sub"]), requester_library_id=UUID(payload["library_id"]))
     )
     return UserResponse.model_validate(result)
 
@@ -75,7 +82,7 @@ async def get_me(
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Invite new user",
-    description="Create a new user in the family and email them a link to set their own "
+    description="Create a new user in the library and email them a link to set their own "
     "password. Requires admin role."
 )
 async def create_user(
@@ -85,7 +92,7 @@ async def create_user(
 ) -> UserResponse:
     result = await use_case.execute(
         CreateUserInput(
-            family_id=UUID(payload["family_id"]),
+            library_id=UUID(payload["library_id"]),
             email=request.email,
             full_name=request.full_name,
             role=request.role,
@@ -97,17 +104,49 @@ async def create_user(
 @router.get(
     "/",
     response_model=list[UserResponse],
-    summary="List family users",
-    description="List all users in the family. Any authenticated family member "
+    summary="List library users",
+    description="List all users in the library. Any authenticated library member "
     "(the roster is needed to show who is reading which book)."
 )
 async def list_users(
-    payload: JWTPayload = Depends(get_current_user_payload),
+    payload: JWTPayload = Depends(require_library_context),
     user_repo: UserRepository = Depends(get_user_repository),
 ) -> list[User]:
     use_case = ListUsersUseCase(user_repo)
-    result = await use_case.execute(ListUsersInput(family_id=UUID(payload["family_id"])))
+    result = await use_case.execute(ListUsersInput(library_id=UUID(payload["library_id"])))
     return result.users
+
+
+@router.get(
+    "/search",
+    response_model=list[GlobalUserSearchResultResponse],
+    summary="Cross-tenant typeahead search for inviting an existing account",
+    description="Searches every Jinbocho account (not just this library's roster) — for "
+    "inviting an existing user into a *different* library. The one cross-tenant lookup in "
+    "the system: admin-only, rate-limited, requires at least 4 characters, and returns only "
+    "name/email (no role, no other library membership). See "
+    "jinbocho-docs/architecture/user-search-plan.md for the privacy rationale."
+)
+@limiter.limit("20/minute")
+async def search_users(
+    request: Request,
+    q: str,
+    limit: int = 3,
+    payload: JWTPayload = Depends(require_role("admin")),
+    use_case: SearchUsersUseCase = Depends(get_search_users_use_case),
+) -> list[GlobalUserSearchResultResponse]:
+    result = await use_case.execute(
+        SearchUsersInput(
+            query=q,
+            exclude_library_id=UUID(payload["library_id"]),
+            requested_by=UUID(payload["sub"]),
+            limit=min(limit, 10),
+        )
+    )
+    return [
+        GlobalUserSearchResultResponse(user_id=r.user_id, full_name=r.full_name, email=r.email)
+        for r in result.results
+    ]
 
 
 @router.patch(
@@ -118,13 +157,13 @@ async def list_users(
 )
 async def update_me(
     request: MeUpdate,
-    payload: JWTPayload = Depends(get_current_user_payload),
+    payload: JWTPayload = Depends(require_library_context),
     use_case: UpdateUserUseCase = Depends(get_update_user_use_case),
 ) -> UserResponse:
     result = await use_case.execute(
         UpdateUserInput(
             user_id=UUID(payload["sub"]),
-            requester_family_id=UUID(payload["family_id"]),
+            requester_library_id=UUID(payload["library_id"]),
             full_name=request.full_name,
             annual_reading_goal=request.annual_reading_goal,
             set_annual_reading_goal="annual_reading_goal" in request.model_fields_set,
@@ -151,7 +190,7 @@ async def update_user(
     result = await use_case.execute(
         UpdateUserInput(
             user_id=user_id,
-            requester_family_id=UUID(payload["family_id"]),
+            requester_library_id=UUID(payload["library_id"]),
             full_name=request.full_name,
             role=request.role,
             is_active=request.is_active,
@@ -179,32 +218,32 @@ async def resend_invite(
     use_case: ResendInviteUseCase = Depends(get_resend_invite_use_case),
 ) -> None:
     await use_case.execute(
-        ResendInviteInput(user_id=user_id, requester_family_id=UUID(payload["family_id"]))
+        ResendInviteInput(user_id=user_id, requester_library_id=UUID(payload["library_id"]))
     )
 
 
 @router.get(
     "/export",
-    response_model=FamilyDataExportResponse,
-    summary="Export family roster",
-    description="Export the family's identity and member roster for a full backup. "
+    response_model=LibraryDataExportResponse,
+    summary="Export library roster",
+    description="Export the library's identity and member roster for a full backup. "
     "Never includes password hashes — restored members set a fresh password via the "
     "same invite-by-email flow used for inviting a new member. Requires admin role."
 )
-async def export_family_data(
+async def export_library_data(
     payload: JWTPayload = Depends(require_role("admin")),
-    family_repo: FamilyRepository = Depends(get_family_repository),
+    library_repo: LibraryRepository = Depends(get_library_repository),
     user_repo: UserRepository = Depends(get_user_repository),
-) -> FamilyDataExportResponse:
-    use_case = ExportFamilyDataUseCase(family_repo, user_repo)
-    result = await use_case.execute(ExportFamilyDataInput(family_id=UUID(payload["family_id"])))
-    return FamilyDataExportResponse(
-        family=FamilyExportItem(
-            id=result.family_id,
-            name=result.family_name,
-            description=result.family_description,
-            created_at=result.family_created_at,
-            updated_at=result.family_updated_at,
+) -> LibraryDataExportResponse:
+    use_case = ExportLibraryDataUseCase(library_repo, user_repo)
+    result = await use_case.execute(ExportLibraryDataInput(library_id=UUID(payload["library_id"])))
+    return LibraryDataExportResponse(
+        library=LibraryExportItem(
+            id=result.library_id,
+            name=result.library_name,
+            description=result.library_description,
+            created_at=result.library_created_at,
+            updated_at=result.library_updated_at,
         ),
         users=[
             UserExportItem(
@@ -233,8 +272,8 @@ async def export_family_data(
 @router.post(
     "/import",
     response_model=ImportUsersResponse,
-    summary="Restore family roster from a backup",
-    description="Restores users from a backup export into the current family. Each user is "
+    summary="Restore library roster from a backup",
+    description="Restores users from a backup export into the current library. Each user is "
     "matched by email if one already exists (kept as-is, no duplicate invite); otherwise "
     "they're invited exactly like POST /v1/users. Returns the original-id -> "
     "matched-or-created-id map, needed to restore the catalog-service data next. Requires admin role."
@@ -246,7 +285,7 @@ async def import_users(
 ) -> ImportUsersResponse:
     result = await use_case.execute(
         ImportUsersInput(
-            family_id=UUID(payload["family_id"]),
+            library_id=UUID(payload["library_id"]),
             users=[
                 ImportUserItem(
                     id=item.id,
@@ -279,21 +318,22 @@ async def import_users(
 )
 async def upload_avatar(
     file: UploadFile = File(...),
-    payload: JWTPayload = Depends(get_current_user_payload),
+    payload: JWTPayload = Depends(require_library_context),
     use_case: UploadAvatarUseCase = Depends(get_upload_avatar_use_case),
     user_repo: UserRepository = Depends(get_user_repository),
+    membership_repo: MembershipRepository = Depends(get_membership_repository),
 ) -> UserResponse:
     image_bytes = await file.read()
     await use_case.execute(
         UploadAvatarInput(
             user_id=UUID(payload["sub"]),
-            family_id=UUID(payload["family_id"]),
+            library_id=UUID(payload["library_id"]),
             image_bytes=image_bytes,
             content_type=file.content_type or "",
         )
     )
-    result = await GetUserUseCase(user_repo).execute(
-        GetUserInput(user_id=UUID(payload["sub"]), requester_family_id=UUID(payload["family_id"]))
+    result = await GetUserUseCase(user_repo, membership_repo).execute(
+        GetUserInput(user_id=UUID(payload["sub"]), requester_library_id=UUID(payload["library_id"]))
     )
     return UserResponse.model_validate(result)
 
@@ -305,13 +345,13 @@ async def upload_avatar(
     description="Remove the current user's profile picture."
 )
 async def delete_avatar(
-    payload: JWTPayload = Depends(get_current_user_payload),
+    payload: JWTPayload = Depends(require_library_context),
     use_case: DeleteAvatarUseCase = Depends(get_delete_avatar_use_case),
 ) -> None:
     await use_case.execute(
         DeleteAvatarInput(
             user_id=UUID(payload["sub"]),
-            family_id=UUID(payload["family_id"]),
+            library_id=UUID(payload["library_id"]),
         )
     )
 
@@ -320,7 +360,7 @@ async def delete_avatar(
     "/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete user",
-    description="Delete user from family. Requires admin role."
+    description="Delete user from library. Requires admin role."
 )
 async def delete_user(
     user_id: UUID,
@@ -328,5 +368,5 @@ async def delete_user(
     use_case: DeleteUserUseCase = Depends(get_delete_user_use_case),
 ) -> None:
     await use_case.execute(
-        DeleteUserInput(user_id=user_id, requester_family_id=UUID(payload["family_id"]))
+        DeleteUserInput(user_id=user_id, requester_library_id=UUID(payload["library_id"]))
     )

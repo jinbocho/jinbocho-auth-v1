@@ -1,7 +1,7 @@
 from .login import LoginUseCase, LoginInput, LoginOutput
 from .refresh_token import RefreshTokenUseCase, RefreshTokenInput, RefreshTokenOutput
 from .logout import LogoutUseCase, LogoutInput
-from .register_family import RegisterFamilyUseCase, RegisterFamilyInput, RegisterFamilyOutput
+from .register_library import RegisterLibraryUseCase, RegisterLibraryInput, RegisterLibraryOutput
 from .request_password_reset import RequestPasswordResetUseCase, RequestPasswordResetInput
 from .reset_password import ResetPasswordUseCase, ResetPasswordInput
 
@@ -14,9 +14,9 @@ __all__ = [
     "RefreshTokenOutput",
     "LogoutUseCase",
     "LogoutInput",
-    "RegisterFamilyUseCase",
-    "RegisterFamilyInput",
-    "RegisterFamilyOutput",
+    "RegisterLibraryUseCase",
+    "RegisterLibraryInput",
+    "RegisterLibraryOutput",
     "RequestPasswordResetUseCase",
     "RequestPasswordResetInput",
     "ResetPasswordUseCase",

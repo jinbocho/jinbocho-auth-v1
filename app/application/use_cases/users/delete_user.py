@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DeleteUserInput:
     user_id: UUID
-    requester_family_id: UUID
+    requester_library_id: UUID
 
 
 class DeleteUserUseCase:
@@ -21,16 +21,16 @@ class DeleteUserUseCase:
 
     async def execute(self, input: DeleteUserInput) -> None:
         user = await self._user_repo.find_by_id(input.user_id)
-        if not user or user.family_id != input.requester_family_id:
+        if not user or user.library_id != input.requester_library_id:
             raise EntityNotFoundError("User not found")
 
         if user.role == UserRole.ADMIN and user.is_active:
-            family = await self._user_repo.find_by_family(user.family_id)
+            library = await self._user_repo.find_by_library(user.library_id)
             other_active_admins = any(
-                u.id != user.id and u.role == UserRole.ADMIN and u.is_active for u in family
+                u.id != user.id and u.role == UserRole.ADMIN and u.is_active for u in library
             )
             if not other_active_admins:
-                raise LastAdminError("Cannot remove the family's last active admin")
+                raise LastAdminError("Cannot remove the library's last active admin")
 
         await self._user_repo.delete(input.user_id)
-        logger.info("User %s deleted from family %s", input.user_id, input.requester_family_id)
+        logger.info("User %s deleted from library %s", input.user_id, input.requester_library_id)

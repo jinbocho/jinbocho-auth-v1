@@ -3,9 +3,9 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.entities import Language, ThemeMode, ThemeName, User, UserRole
+from app.domain.entities import Language, MembershipStatus, ThemeMode, ThemeName, User, UserRole
 from app.domain.repositories import UserRepository
-from app.infrastructure.models import UserModel
+from app.infrastructure.models import LibraryMembershipModel, UserModel
 
 
 class SQLAlchemyUserRepository(UserRepository):
@@ -16,7 +16,7 @@ class SQLAlchemyUserRepository(UserRepository):
     def _to_entity(model: UserModel) -> User:
         return User(
             id=model.id,
-            family_id=model.family_id,
+            library_id=model.library_id,
             email=model.email,
             password_hash=model.password_hash,
             full_name=model.full_name,
@@ -31,6 +31,7 @@ class SQLAlchemyUserRepository(UserRepository):
             consent_privacy_version=model.consent_privacy_version,
             consent_terms_version=model.consent_terms_version,
             consent_at=model.consent_at,
+            last_selected_library_id=model.last_selected_library_id,
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
@@ -38,7 +39,7 @@ class SQLAlchemyUserRepository(UserRepository):
     async def save(self, user: User) -> User:
         model = UserModel(
             id=user.id,
-            family_id=user.family_id,
+            library_id=user.library_id,
             email=user.email,
             password_hash=user.password_hash,
             full_name=user.full_name,
@@ -53,6 +54,7 @@ class SQLAlchemyUserRepository(UserRepository):
             consent_privacy_version=user.consent_privacy_version,
             consent_terms_version=user.consent_terms_version,
             consent_at=user.consent_at,
+            last_selected_library_id=user.last_selected_library_id,
             created_at=user.created_at,
             updated_at=user.updated_at,
         )
@@ -74,9 +76,32 @@ class SQLAlchemyUserRepository(UserRepository):
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None
 
-    async def find_by_family(self, family_id: UUID) -> list[User]:
+    async def find_by_library(self, library_id: UUID) -> list[User]:
         result = await self._session.execute(
-            select(UserModel).where(UserModel.family_id == family_id).order_by(UserModel.full_name)
+            select(UserModel).where(UserModel.library_id == library_id).order_by(UserModel.full_name)
+        )
+        return [self._to_entity(model) for model in result.scalars().all()]
+
+    async def search_active_excluding_library(
+        self, query: str, exclude_library_id: UUID, limit: int
+    ) -> list[User]:
+        needle = f"%{query}%"
+        already_member = (
+            select(LibraryMembershipModel.user_id)
+            .where(
+                LibraryMembershipModel.library_id == exclude_library_id,
+                LibraryMembershipModel.status != MembershipStatus.REVOKED.value,
+            )
+        )
+        result = await self._session.execute(
+            select(UserModel)
+            .where(
+                UserModel.is_active.is_(True),
+                UserModel.id.not_in(already_member),
+                (UserModel.full_name.ilike(needle) | UserModel.email.ilike(needle)),
+            )
+            .order_by(UserModel.full_name)
+            .limit(limit)
         )
         return [self._to_entity(model) for model in result.scalars().all()]
 

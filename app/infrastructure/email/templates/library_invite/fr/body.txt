@@ -1,0 +1,5 @@
+{{ inviter_name }} vous a invité à rejoindre « {{ library_name }} » sur Jinbocho.
+
+Connectez-vous avec votre compte existant pour la consulter :
+
+{{ link }}

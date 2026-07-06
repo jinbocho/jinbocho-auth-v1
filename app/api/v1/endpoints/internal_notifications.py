@@ -12,7 +12,7 @@ router = APIRouter()
 @router.post(
     "/loan-reminder",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Notify a family that a loan is due soon",
+    summary="Notify a library that a loan is due soon",
     description=(
         "Internal, service-to-service endpoint (catalog-service calls this) — "
         "not reachable with a user JWT, only with the shared internal token."
@@ -26,7 +26,7 @@ async def notify_loan_reminder(
     use_case = NotifyLoanReminderUseCase(user_repo, email_sender)
     await use_case.execute(
         NotifyLoanReminderInput(
-            family_id=request.family_id,
+            library_id=request.library_id,
             book_title=request.book_title,
             borrower_name=request.borrower_name,
             due_date=request.due_date,

@@ -10,24 +10,24 @@ _NOTIFIABLE_ROLES = ("admin", "editor")
 
 @dataclass
 class NotifyLoanReminderInput:
-    family_id: UUID
+    library_id: UUID
     book_title: str
     borrower_name: str
     due_date: datetime
 
 
 class NotifyLoanReminderUseCase:
-    """Emails the family's admins/editors that a loan they made is due soon.
+    """Emails the library's admins/editors that a loan they made is due soon.
 
     The borrower is external (just a name, no account) — there's no one else
-    to notify. A family with no admin/editor members is a silent no-op."""
+    to notify. A library with no admin/editor members is a silent no-op."""
 
     def __init__(self, user_repo: UserRepository, email_sender: EmailService) -> None:
         self._user_repo = user_repo
         self._email_sender = email_sender
 
     async def execute(self, input: NotifyLoanReminderInput) -> None:
-        users = await self._user_repo.find_by_family(input.family_id)
+        users = await self._user_repo.find_by_library(input.library_id)
         recipients = [u for u in users if u.is_active and u.role in _NOTIFIABLE_ROLES]
 
         for user in recipients:

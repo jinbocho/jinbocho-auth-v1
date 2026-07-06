@@ -25,7 +25,7 @@ class ImportUserItem:
 
 @dataclass
 class ImportUsersInput:
-    family_id: UUID
+    library_id: UUID
     users: list[ImportUserItem] = field(default_factory=list)
 
 
@@ -37,11 +37,11 @@ class ImportUsersOutput:
 
 
 class ImportUsersUseCase:
-    """Restores a family roster from a backup export.
+    """Restores a library roster from a backup export.
 
     Users are matched by email (globally unique across the whole service)
     rather than re-created blindly: a member who already exists — in the
-    target family, or because they re-registered before importing — is
+    target library, or because they re-registered before importing — is
     reused as-is, so importing never overwrites their current role/settings
     or sends a spurious invite. Anyone not found is invited exactly like
     CreateUserUseCase already does (placeholder password + email link), then
@@ -81,7 +81,7 @@ class ImportUsersUseCase:
 
             new_user = await self._create_user.execute(
                 CreateUserInput(
-                    family_id=input.family_id,
+                    library_id=input.library_id,
                     email=item.email,
                     full_name=item.full_name,
                     role=item.role,
@@ -90,7 +90,7 @@ class ImportUsersUseCase:
             await self._update_user.execute(
                 UpdateUserInput(
                     user_id=new_user.id,
-                    requester_family_id=input.family_id,
+                    requester_library_id=input.library_id,
                     is_active=item.is_active,
                     annual_reading_goal=item.annual_reading_goal,
                     set_annual_reading_goal=True,
@@ -103,7 +103,7 @@ class ImportUsersUseCase:
             created += 1
 
         logger.info(
-            "Import for family %s: %d created, %d matched",
-            input.family_id, created, matched,
+            "Import for library %s: %d created, %d matched",
+            input.library_id, created, matched,
         )
         return ImportUsersOutput(user_id_map=user_id_map, created=created, matched=matched)

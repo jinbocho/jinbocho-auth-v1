@@ -17,7 +17,16 @@ class EmailService(Protocol):
     def send_welcome_email(
         self,
         to_email: str,
-        family_name: str,
+        library_name: str,
+        link: str,
+        language: str | None = None,
+    ) -> None: ...
+
+    def send_library_invite_email(
+        self,
+        to_email: str,
+        library_name: str,
+        inviter_name: str,
         link: str,
         language: str | None = None,
     ) -> None: ...

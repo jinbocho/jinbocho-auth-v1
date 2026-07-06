@@ -3,9 +3,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from app.domain.entities.enums import Language, ThemeMode, ThemeName, UserRole
+from app.domain.entities.enums import Language, MembershipStatus, ThemeMode, ThemeName, UserRole
 from app.domain.exceptions import EntityNotFoundError
-from app.domain.repositories import UserRepository
+from app.domain.repositories import MembershipRepository, UserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -13,13 +13,13 @@ logger = logging.getLogger(__name__)
 @dataclass
 class GetUserInput:
     user_id: UUID
-    requester_family_id: UUID
+    requester_library_id: UUID
 
 
 @dataclass
 class GetUserOutput:
     id: UUID
-    family_id: UUID
+    library_id: UUID
     email: str
     full_name: str
     role: UserRole
@@ -33,21 +33,32 @@ class GetUserOutput:
 
 
 class GetUserUseCase:
-    def __init__(self, user_repo: UserRepository):
+    """Fetches a user's profile within one library's context. Authorization
+    is membership-based (does this user have an active membership in
+    requester_library_id?) rather than the legacy users.library_id scalar —
+    that scalar only ever reflects a user's *original* library, so it breaks
+    for anyone reachable in a second library only through a membership row
+    (e.g. a plain GET /users/me right after switching into it)."""
+
+    def __init__(self, user_repo: UserRepository, membership_repo: MembershipRepository):
         self._user_repo = user_repo
+        self._membership_repo = membership_repo
 
     async def execute(self, input: GetUserInput) -> GetUserOutput:
         user = await self._user_repo.find_by_id(input.user_id)
-        if not user or user.family_id != input.requester_family_id:
+        if not user:
+            raise EntityNotFoundError("User not found")
+        membership = await self._membership_repo.find_by_user_and_library(user.id, input.requester_library_id)
+        if membership is None or membership.status != MembershipStatus.ACTIVE:
             raise EntityNotFoundError("User not found")
 
-        logger.debug("User %s fetched by family %s", input.user_id, input.requester_family_id)
+        logger.debug("User %s fetched by library %s", input.user_id, input.requester_library_id)
         return GetUserOutput(
             id=user.id,
-            family_id=user.family_id,
+            library_id=input.requester_library_id,
             email=user.email,
             full_name=user.full_name,
-            role=user.role,
+            role=membership.role,
             is_active=user.is_active,
             annual_reading_goal=user.annual_reading_goal,
             language=user.language,

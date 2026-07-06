@@ -2,13 +2,13 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_register_family_success(async_client):
-    """Test successful family registration creates family and admin user."""
+async def test_register_library_success(async_client):
+    """Test successful library registration creates library and admin user."""
     response = await async_client.post(
         "/v1/auth/register",
         json={
-            "family_name": "My Test Family",
-            "admin_email": "admin@family.com",
+            "library_name": "My Test Library",
+            "admin_email": "admin@library.com",
             "admin_password": "SecurePassword123!",
             "admin_full_name": "Admin Name",
             "accepted_privacy_version": "1.0",
@@ -17,19 +17,19 @@ async def test_register_family_success(async_client):
     )
     assert response.status_code == 201
     data = response.json()
-    assert "family_id" in data
+    assert "library_id" in data
     assert "user_id" in data
 
 
 @pytest.mark.asyncio
-async def test_register_family_without_consent_versions_is_rejected(async_client):
+async def test_register_library_without_consent_versions_is_rejected(async_client):
     """GDPR Art. 7: registration must record which policy version was
     accepted, so the fields are required — not optional metadata."""
     response = await async_client.post(
         "/v1/auth/register",
         json={
-            "family_name": "No Consent Family",
-            "admin_email": "no-consent@family.com",
+            "library_name": "No Consent Library",
+            "admin_email": "no-consent@library.com",
             "admin_password": "SecurePassword123!",
             "admin_full_name": "Admin Name",
         },
@@ -38,14 +38,14 @@ async def test_register_family_without_consent_versions_is_rejected(async_client
 
 
 @pytest.mark.asyncio
-async def test_register_family_sends_welcome_email(async_client, capsys):
-    """The admin who creates a family must receive a welcome email with a
+async def test_register_library_sends_welcome_email(async_client, capsys):
+    """The admin who creates a library must receive a welcome email with a
     link to log in (console fallback in tests, since SMTP isn't configured)."""
     response = await async_client.post(
         "/v1/auth/register",
         json={
-            "family_name": "Welcome Family",
-            "admin_email": "welcome-admin@family.com",
+            "library_name": "Welcome Library",
+            "admin_email": "welcome-admin@library.com",
             "admin_password": "SecurePassword123!",
             "admin_full_name": "Admin Name",
             "accepted_privacy_version": "1.0",
@@ -56,17 +56,17 @@ async def test_register_family_sends_welcome_email(async_client, capsys):
 
     console_output = capsys.readouterr().out
     assert "[EMAIL CONSOLE]" in console_output
-    assert "welcome-admin@family.com" in console_output
+    assert "welcome-admin@library.com" in console_output
     link_line = next(line for line in console_output.splitlines() if line.startswith("Link:"))
     assert link_line.strip().endswith("/login")
 
 
 @pytest.mark.asyncio
-async def test_login_success(async_client, test_family_and_user):
+async def test_login_success(async_client, test_library_and_user):
     """Test successful login returns access and refresh tokens."""
     response = await async_client.post(
         "/v1/auth/login",
-        json={"email": test_family_and_user["email"], "password": test_family_and_user["password"]},
+        json={"email": test_library_and_user["email"], "password": test_library_and_user["password"]},
     )
     assert response.status_code == 200
     data = response.json()
@@ -86,12 +86,12 @@ async def test_login_invalid_credentials(async_client):
 
 
 @pytest.mark.asyncio
-async def test_refresh_token_success(async_client, test_family_and_user):
+async def test_refresh_token_success(async_client, test_library_and_user):
     """Test token refresh rotates tokens."""
     # Login first
     login_response = await async_client.post(
         "/v1/auth/login",
-        json={"email": test_family_and_user["email"], "password": test_family_and_user["password"]},
+        json={"email": test_library_and_user["email"], "password": test_library_and_user["password"]},
     )
     refresh_token = login_response.json()["refresh_token"]
 
@@ -113,12 +113,12 @@ async def test_refresh_token_invalid(async_client):
 
 
 @pytest.mark.asyncio
-async def test_logout_success(async_client, test_family_and_user):
+async def test_logout_success(async_client, test_library_and_user):
     """Test logout revokes refresh token."""
     # Login first
     login_response = await async_client.post(
         "/v1/auth/login",
-        json={"email": test_family_and_user["email"], "password": test_family_and_user["password"]},
+        json={"email": test_library_and_user["email"], "password": test_library_and_user["password"]},
     )
     refresh_token = login_response.json()["refresh_token"]
 
@@ -128,12 +128,12 @@ async def test_logout_success(async_client, test_family_and_user):
 
 
 @pytest.mark.asyncio
-async def test_get_me_success(async_client, test_family_and_user):
+async def test_get_me_success(async_client, test_library_and_user):
     """Test GET /me returns current user info."""
     # Login to get access token
     login_response = await async_client.post(
         "/v1/auth/login",
-        json={"email": test_family_and_user["email"], "password": test_family_and_user["password"]},
+        json={"email": test_library_and_user["email"], "password": test_library_and_user["password"]},
     )
     access_token = login_response.json()["access_token"]
 
@@ -143,16 +143,16 @@ async def test_get_me_success(async_client, test_family_and_user):
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["email"] == test_family_and_user["email"]
+    assert data["email"] == test_library_and_user["email"]
 
 
 @pytest.mark.asyncio
-async def test_create_user_success(async_client, test_family_and_user):
-    """Test inviting a new user in family — no password is chosen by the admin."""
+async def test_create_user_success(async_client, test_library_and_user):
+    """Test inviting a new user in library — no password is chosen by the admin."""
     # Login as admin
     login_response = await async_client.post(
         "/v1/auth/login",
-        json={"email": test_family_and_user["email"], "password": test_family_and_user["password"]},
+        json={"email": test_library_and_user["email"], "password": test_library_and_user["password"]},
     )
     access_token = login_response.json()["access_token"]
 
@@ -172,13 +172,13 @@ async def test_create_user_success(async_client, test_family_and_user):
 
 
 @pytest.mark.asyncio
-async def test_invited_user_sets_password_and_logs_in(async_client, test_family_and_user, capsys):
+async def test_invited_user_sets_password_and_logs_in(async_client, test_library_and_user, capsys):
     """End to end: invite a user, recover the setup link from the console-email
     fallback, set a password through the generic reset-password endpoint, then
     log in with it."""
     login_response = await async_client.post(
         "/v1/auth/login",
-        json={"email": test_family_and_user["email"], "password": test_family_and_user["password"]},
+        json={"email": test_library_and_user["email"], "password": test_library_and_user["password"]},
     )
     access_token = login_response.json()["access_token"]
 
@@ -208,7 +208,7 @@ async def test_invited_user_sets_password_and_logs_in(async_client, test_family_
 
 
 @pytest.mark.asyncio
-async def test_delete_user_success(async_client, test_family_and_user):
+async def test_delete_user_success(async_client, test_library_and_user):
     """Regression: deleting a user used to fail with a NotNullViolationError
     on refresh_tokens.user_id (the ORM tried to null the FK instead of
     trusting the DB's ON DELETE CASCADE). Reproduce it faithfully by giving
@@ -220,7 +220,7 @@ async def test_delete_user_success(async_client, test_family_and_user):
 
     login_response = await async_client.post(
         "/v1/auth/login",
-        json={"email": test_family_and_user["email"], "password": test_family_and_user["password"]},
+        json={"email": test_library_and_user["email"], "password": test_library_and_user["password"]},
     )
     access_token = login_response.json()["access_token"]
     headers = {"Authorization": f"Bearer {access_token}"}
@@ -248,13 +248,13 @@ async def test_delete_user_success(async_client, test_family_and_user):
 
 
 @pytest.mark.asyncio
-async def test_update_me_persists_theme_preferences(async_client, test_family_and_user):
+async def test_update_me_persists_theme_preferences(async_client, test_library_and_user):
     """Regression: SQLAlchemyUserRepository._to_entity used to drop
     theme_name/theme_mode on every read, so a PATCH would write them to the
     DB but the response (and any later GET) would still show null."""
     login_response = await async_client.post(
         "/v1/auth/login",
-        json={"email": test_family_and_user["email"], "password": test_family_and_user["password"]},
+        json={"email": test_library_and_user["email"], "password": test_library_and_user["password"]},
     )
     access_token = login_response.json()["access_token"]
     headers = {"Authorization": f"Bearer {access_token}"}
@@ -275,18 +275,18 @@ async def test_update_me_persists_theme_preferences(async_client, test_family_an
 
 
 @pytest.mark.asyncio
-async def test_get_family_success(async_client, test_family_and_user):
-    """Test GET /families/{id} returns family info."""
+async def test_get_library_success(async_client, test_library_and_user):
+    """Test GET /libraries/{id} returns library info."""
     # Login to get access token
     login_response = await async_client.post(
         "/v1/auth/login",
-        json={"email": test_family_and_user["email"], "password": test_family_and_user["password"]},
+        json={"email": test_library_and_user["email"], "password": test_library_and_user["password"]},
     )
     access_token = login_response.json()["access_token"]
 
-    # Get family
+    # Get library
     response = await async_client.get(
-        f"/v1/families/{test_family_and_user['family_id']}",
+        f"/v1/libraries/{test_library_and_user['library_id']}",
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200

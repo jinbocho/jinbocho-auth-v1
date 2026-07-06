@@ -3,9 +3,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from app.domain.entities.enums import Language, ThemeMode, ThemeName, UserRole
+from app.domain.entities.enums import Language, MembershipStatus, ThemeMode, ThemeName, UserRole
 from app.domain.exceptions import EntityNotFoundError, LastAdminError
-from app.domain.repositories import UserRepository
+from app.domain.repositories import MembershipRepository, UserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class UpdateUserInput:
     user_id: UUID
-    requester_family_id: UUID
+    requester_library_id: UUID
     full_name: str | None = None
     role: UserRole | None = None
     is_active: bool | None = None
@@ -30,7 +30,7 @@ class UpdateUserInput:
 @dataclass
 class UpdateUserOutput:
     id: UUID
-    family_id: UUID
+    library_id: UUID
     email: str
     full_name: str
     role: UserRole
@@ -44,30 +44,33 @@ class UpdateUserOutput:
 
 
 class UpdateUserUseCase:
-    def __init__(self, user_repo: UserRepository):
+    """Same membership-based authorization rationale as GetUserUseCase — see
+    its docstring. Powers both PATCH /users/me (self) and the legacy admin
+    PATCH /users/{id}, now superseded for role/status management by
+    UpdateMembershipUseCase (kept here only for full_name/preferences)."""
+
+    def __init__(self, user_repo: UserRepository, membership_repo: MembershipRepository):
         self._user_repo = user_repo
+        self._membership_repo = membership_repo
 
     async def execute(self, input: UpdateUserInput) -> UpdateUserOutput:
         user = await self._user_repo.find_by_id(input.user_id)
-        if not user or user.family_id != input.requester_family_id:
+        if not user:
+            raise EntityNotFoundError("User not found")
+        membership = await self._membership_repo.find_by_user_and_library(user.id, input.requester_library_id)
+        if membership is None or membership.status != MembershipStatus.ACTIVE:
             raise EntityNotFoundError("User not found")
 
         demoting_admin = input.role is not None and input.role != UserRole.ADMIN
         deactivating = input.is_active is False
-        if user.role == UserRole.ADMIN and user.is_active and (demoting_admin or deactivating):
-            family = await self._user_repo.find_by_family(user.family_id)
-            other_active_admins = any(
-                u.id != user.id and u.role == UserRole.ADMIN and u.is_active for u in family
-            )
+        if membership.role == UserRole.ADMIN and (demoting_admin or deactivating):
+            siblings = await self._membership_repo.find_by_library(input.requester_library_id, [MembershipStatus.ACTIVE])
+            other_active_admins = any(s.user_id != user.id and s.role == UserRole.ADMIN for s in siblings)
             if not other_active_admins:
-                raise LastAdminError("Cannot remove the family's last active admin")
+                raise LastAdminError("Cannot remove the library's last active admin")
 
         if input.full_name is not None:
             user.full_name = input.full_name
-        if input.role is not None:
-            user.role = input.role
-        if input.is_active is not None:
-            user.is_active = input.is_active
         if input.set_annual_reading_goal:
             user.annual_reading_goal = input.annual_reading_goal
         if input.language is not None:
@@ -77,14 +80,28 @@ class UpdateUserUseCase:
         if input.theme_mode is not None:
             user.theme_mode = input.theme_mode
 
+        # Role/active-status live on the membership now, not the legacy user
+        # scalar — update both so the legacy field never silently disagrees
+        # with what's actually enforced (see require_role, which reads the
+        # JWT's role claim, itself sourced from the membership at select time).
+        if input.role is not None:
+            user.role = input.role
+            membership.role = input.role
+        if input.is_active is not None:
+            user.is_active = input.is_active
+            membership.status = MembershipStatus.ACTIVE if input.is_active else MembershipStatus.SUSPENDED
+
+        if input.role is not None or input.is_active is not None:
+            membership = await self._membership_repo.save(membership)
+
         updated_user = await self._user_repo.save(user)
-        logger.info("User %s updated by family %s", input.user_id, input.requester_family_id)
+        logger.info("User %s updated by library %s", input.user_id, input.requester_library_id)
         return UpdateUserOutput(
             id=updated_user.id,
-            family_id=updated_user.family_id,
+            library_id=input.requester_library_id,
             email=updated_user.email,
             full_name=updated_user.full_name,
-            role=updated_user.role,
+            role=membership.role,
             is_active=updated_user.is_active,
             annual_reading_goal=updated_user.annual_reading_goal,
             language=updated_user.language,

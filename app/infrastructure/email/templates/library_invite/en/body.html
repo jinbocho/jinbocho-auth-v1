@@ -1,0 +1,22 @@
+{% extends "_base.html" %}
+{% block preheader %}{{ inviter_name }} invited you to join &#x201C;{{ library_name }}&#x201D; on Jinbocho.{% endblock %}
+{% block content %}
+<h2 class="email-title">You&rsquo;ve been invited to a library</h2>
+<p class="email-meta">Account &middot; Invitation</p>
+<p class="email-text">
+  <strong>{{ inviter_name }}</strong> invited you to join <strong>&#x201C;{{ library_name }}&#x201D;</strong> on Jinbocho.
+  Log in with your existing account to see it.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" class="cta-table">
+  <tr>
+    <td class="cta-cell">
+      <a href="{{ link }}" class="cta-link">Log in</a>
+    </td>
+  </tr>
+</table>
+<p class="fallback-block">
+  Or copy this link into your browser:<br />
+  <a href="{{ link }}" class="fallback-link">{{ link }}</a>
+</p>
+{% endblock %}
+{% block footer_text %}Home Library Management{% endblock %}

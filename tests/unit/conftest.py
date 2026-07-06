@@ -3,9 +3,10 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from app.application.ports import EmailService
-from app.domain.entities import Family, PasswordResetToken, RefreshToken, User, UserRole
+from app.domain.entities import Library, LibraryMembership, MembershipStatus, PasswordResetToken, RefreshToken, User, UserRole
 from app.domain.repositories import (
-    FamilyRepository,
+    LibraryRepository,
+    MembershipRepository,
     PasswordResetTokenRepository,
     RefreshTokenRepository,
     UserRepository,
@@ -16,6 +17,11 @@ from app.infrastructure.security import BcryptPasswordHasher
 class MockUserRepository(UserRepository):
     def __init__(self):
         self.users = {}
+        # Optional collaborator, wired up by tests that exercise
+        # search_active_excluding_library — mirrors the real repository's
+        # SQL join against membership rows without requiring every other
+        # test in the suite to construct one.
+        self.membership_repo: MembershipRepository | None = None
 
     async def save(self, user: User) -> User:
         self.users[user.id] = user
@@ -30,26 +36,76 @@ class MockUserRepository(UserRepository):
     async def find_by_id(self, id) -> User | None:
         return self.users.get(id)
 
-    async def find_by_family(self, family_id) -> list[User]:
-        return [u for u in self.users.values() if u.family_id == family_id]
+    async def find_by_library(self, library_id) -> list[User]:
+        return [u for u in self.users.values() if u.library_id == library_id]
+
+    async def search_active_excluding_library(self, query: str, exclude_library_id, limit: int) -> list[User]:
+        excluded_ids: set = set()
+        if self.membership_repo is not None:
+            non_revoked = [
+                MembershipStatus.INVITED, MembershipStatus.ACTIVE, MembershipStatus.SUSPENDED,
+            ]
+            memberships = await self.membership_repo.find_by_library(exclude_library_id, non_revoked)
+            excluded_ids = {m.user_id for m in memberships}
+        needle = query.lower()
+        matches = [
+            u for u in self.users.values()
+            if u.is_active and u.id not in excluded_ids
+            and (needle in u.full_name.lower() or needle in u.email.lower())
+        ]
+        matches.sort(key=lambda u: u.full_name.lower())
+        return matches[:limit]
 
     async def delete(self, id) -> None:
         self.users.pop(id, None)
 
 
-class MockFamilyRepository(FamilyRepository):
+class MockLibraryRepository(LibraryRepository):
     def __init__(self):
-        self.families = {}
+        self.libraries = {}
 
-    async def save(self, family: Family) -> Family:
-        self.families[family.id] = family
-        return family
+    async def save(self, library: Library) -> Library:
+        self.libraries[library.id] = library
+        return library
 
-    async def find_by_id(self, id) -> Family | None:
-        return self.families.get(id)
+    async def find_by_id(self, id) -> Library | None:
+        return self.libraries.get(id)
 
     async def delete(self, id) -> None:
-        self.families.pop(id, None)
+        self.libraries.pop(id, None)
+
+
+class MockMembershipRepository(MembershipRepository):
+    def __init__(self):
+        self.memberships = {}
+
+    async def save(self, membership: LibraryMembership) -> LibraryMembership:
+        self.memberships[membership.id] = membership
+        return membership
+
+    async def find_by_id(self, id) -> LibraryMembership | None:
+        return self.memberships.get(id)
+
+    async def find_by_user_and_library(self, user_id, library_id) -> LibraryMembership | None:
+        for m in self.memberships.values():
+            if m.user_id == user_id and m.library_id == library_id:
+                return m
+        return None
+
+    async def find_by_user(self, user_id, statuses: list[MembershipStatus] | None = None) -> list[LibraryMembership]:
+        result = [m for m in self.memberships.values() if m.user_id == user_id]
+        if statuses:
+            result = [m for m in result if m.status in statuses]
+        return result
+
+    async def find_by_library(self, library_id, statuses: list[MembershipStatus] | None = None) -> list[LibraryMembership]:
+        result = [m for m in self.memberships.values() if m.library_id == library_id]
+        if statuses:
+            result = [m for m in result if m.status in statuses]
+        return result
+
+    async def delete(self, id) -> None:
+        self.memberships.pop(id, None)
 
 
 class MockRefreshTokenRepository(RefreshTokenRepository):
@@ -125,10 +181,24 @@ class FakeEmailSender(EmailService):
         self.sent.append({"to_email": to_email, "link": link, "purpose": purpose, "language": language})
 
     def send_welcome_email(
-        self, to_email: str, family_name: str, link: str, language: str | None = None
+        self, to_email: str, library_name: str, link: str, language: str | None = None
     ) -> None:
         self.sent.append(
-            {"to_email": to_email, "family_name": family_name, "link": link, "purpose": "welcome", "language": language}
+            {"to_email": to_email, "library_name": library_name, "link": link, "purpose": "welcome", "language": language}
+        )
+
+    def send_library_invite_email(
+        self, to_email: str, library_name: str, inviter_name: str, link: str, language: str | None = None
+    ) -> None:
+        self.sent.append(
+            {
+                "to_email": to_email,
+                "library_name": library_name,
+                "inviter_name": inviter_name,
+                "link": link,
+                "purpose": "library_invite",
+                "language": language,
+            }
         )
 
     def send_loan_reminder(
@@ -211,8 +281,13 @@ def fake_email_sender():
 
 
 @pytest.fixture
-def mock_family_repo():
-    return MockFamilyRepository()
+def mock_library_repo():
+    return MockLibraryRepository()
+
+
+@pytest.fixture
+def mock_membership_repo():
+    return MockMembershipRepository()
 
 
 @pytest.fixture
@@ -221,15 +296,15 @@ def mock_refresh_token_repo():
 
 
 @pytest.fixture
-def test_family():
-    return Family(id=uuid4(), name="Test Family")
+def test_library():
+    return Library(id=uuid4(), name="Test Library")
 
 
 @pytest.fixture
-def test_user(test_family):
+def test_user(test_library):
     return User(
         id=uuid4(),
-        family_id=test_family.id,
+        library_id=test_library.id,
         email="test@example.com",
         password_hash="hashed_password",
         full_name="Test User",

@@ -1,0 +1,5 @@
+{{ inviter_name }} invited you to join "{{ library_name }}" on Jinbocho.
+
+Log in with your existing account to see it:
+
+{{ link }}

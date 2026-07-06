@@ -8,7 +8,7 @@ from .auth_schemas import (
     UserSummary,
 )
 from .user_schemas import UserResponse, UserCreate, UserUpdate
-from .family_schemas import FamilyResponse, FamilyUpdate
+from .library_schemas import LibraryResponse, LibraryUpdate
 
 __all__ = [
     # Auth schemas
@@ -23,7 +23,7 @@ __all__ = [
     "UserResponse",
     "UserCreate",
     "UserUpdate",
-    # Family schemas
-    "FamilyResponse",
-    "FamilyUpdate",
+    # Library schemas
+    "LibraryResponse",
+    "LibraryUpdate",
 ]
