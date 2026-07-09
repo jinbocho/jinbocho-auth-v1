@@ -68,9 +68,21 @@ class UserUpdate(BaseModel):
 
 
 class MeUpdate(BaseModel):
-    """Request body for self-update (any authenticated user)."""
+    """Request body for self-update (any authenticated user). Email is
+    deliberately absent here — changing it goes through the verify-before-
+    apply flow in EmailChangeRequest/EmailChangeConfirm instead, so a typo'd
+    or unreachable new address can never lock the account out silently."""
     full_name: str | None = Field(default=None, description="New full name")
     annual_reading_goal: int | None = Field(default=None, description="Annual reading goal (null = no goal)")
     language: Language | None = Field(default=None, description="UI language preference")
     theme_name: ThemeName | None = Field(default=None, description="UI theme")
     theme_mode: ThemeMode | None = Field(default=None, description="UI colour mode")
+
+
+class EmailChangeRequest(BaseModel):
+    """Request body to start a verified email change for the current user."""
+    new_email: EmailStr = Field(description="The new email address to verify and switch to")
+
+    model_config = ConfigDict(
+        json_schema_extra={"example": {"new_email": "jane.new@example.com"}}
+    )

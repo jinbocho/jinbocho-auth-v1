@@ -124,6 +124,18 @@ class ResetPasswordRequest(BaseModel):
     )
 
 
+class ConfirmEmailChangeRequest(BaseModel):
+    """Request body to complete a verified email change. Unauthenticated —
+    like reset-password, the token itself (delivered to the new address) is
+    the credential, since the confirming link may be opened on a different
+    device/session than the one that requested the change."""
+    token: str = Field(description="Email change token received via email")
+
+    model_config = ConfigDict(
+        json_schema_extra={"example": {"token": "abc123..."}}
+    )
+
+
 class UserSummary(BaseModel):
     """User summary information."""
     model_config = ConfigDict(from_attributes=True)

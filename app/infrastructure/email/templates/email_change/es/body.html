@@ -1,0 +1,26 @@
+{% extends "_base.html" %}
+{% block preheader %}Confirma la nueva dirección de email de tu cuenta Jinbocho — enlace válido 30 minutos.{% endblock %}
+{% block content %}
+<h2 class="email-title">Confirma tu nueva dirección de email</h2>
+<p class="email-meta">Seguridad &middot; Cambio de Email</p>
+<p class="email-text">
+  Se solicitó cambiar la dirección de email de una cuenta Jinbocho a esta dirección.
+  Haz clic en el botón de abajo para confirmarla.
+</p>
+<p class="email-note">
+  Este enlace expira en <strong>30 minutos</strong>.
+  Si no realizaste esta solicitud, puedes ignorar este correo &mdash; la dirección de email de la cuenta no cambiará.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" class="cta-table">
+  <tr>
+    <td class="cta-cell">
+      <a href="{{ link }}" class="cta-link">Confirmar mi nueva dirección</a>
+    </td>
+  </tr>
+</table>
+<p class="fallback-block">
+  O copia este enlace en tu navegador:<br />
+  <a href="{{ link }}" class="fallback-link">{{ link }}</a>
+</p>
+{% endblock %}
+{% block footer_text %}Gestión de tu biblioteca en casa{% endblock %}

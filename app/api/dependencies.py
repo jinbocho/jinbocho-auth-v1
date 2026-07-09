@@ -36,9 +36,11 @@ from app.application.use_cases.memberships import (
     UpdateMembershipUseCase,
 )
 from app.application.use_cases.users import (
+    ConfirmEmailChangeUseCase,
     CreateUserUseCase,
     DeleteAvatarUseCase,
     ImportUsersUseCase,
+    RequestEmailChangeUseCase,
     ResendInviteUseCase,
     SearchUsersUseCase,
     UpdateUserUseCase,
@@ -47,6 +49,7 @@ from app.application.use_cases.users import (
 )
 from app.config import settings
 from app.domain.repositories import (
+    EmailChangeTokenRepository,
     LibraryRepository,
     MembershipRepository,
     PasswordResetTokenRepository,
@@ -57,6 +60,7 @@ from app.domain.services import PasswordHasher
 from app.infrastructure.database.session import get_db
 from app.infrastructure.email import EmailSender
 from app.infrastructure.repositories import (
+    SQLAlchemyEmailChangeTokenRepository,
     SQLAlchemyLibraryRepository,
     SQLAlchemyMembershipRepository,
     SQLAlchemyPasswordResetTokenRepository,
@@ -82,14 +86,6 @@ class JWTPayload(TypedDict):
 security = HTTPBearer()
 _password_hasher = BcryptPasswordHasher()
 _token_service = TokenService(settings)
-_email_sender = EmailSender(
-    host=settings.smtp_host,
-    port=settings.smtp_port,
-    user=settings.smtp_user,
-    password=settings.smtp_password,
-    from_address=settings.email_from,
-    timeout_seconds=settings.smtp_timeout_seconds,
-)
 
 _AUTH_ERROR = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -120,6 +116,12 @@ def get_password_reset_token_repository(
     return SQLAlchemyPasswordResetTokenRepository(db)
 
 
+def get_email_change_token_repository(
+    db: AsyncSession = Depends(get_db),
+) -> EmailChangeTokenRepository:
+    return SQLAlchemyEmailChangeTokenRepository(db)
+
+
 def get_refresh_token_repository(db: AsyncSession = Depends(get_db)) -> RefreshTokenRepository:
     return SQLAlchemyRefreshTokenRepository(db)
 
@@ -137,7 +139,17 @@ def get_password_hasher() -> PasswordHasher:
 
 
 def get_email_sender() -> EmailService:
-    return _email_sender
+    # Built fresh per call (not a module-level singleton) so it always reads
+    # the current settings.smtp_host — tests monkeypatch that value to force
+    # the console fallback, which a frozen-at-import singleton would ignore.
+    return EmailSender(
+        host=settings.smtp_host,
+        port=settings.smtp_port,
+        user=settings.smtp_user,
+        password=settings.smtp_password,
+        from_address=settings.email_from,
+        timeout_seconds=settings.smtp_timeout_seconds,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -374,6 +386,26 @@ def get_update_user_use_case(
     return UpdateUserUseCase(user_repo, membership_repo)
 
 
+def get_request_email_change_use_case(
+    user_repo: UserRepository = Depends(get_user_repository),
+    email_change_token_repo: EmailChangeTokenRepository = Depends(get_email_change_token_repository),
+    email_sender: EmailService = Depends(get_email_sender),
+    token_service: TokenService = Depends(get_token_service),
+) -> RequestEmailChangeUseCase:
+    return RequestEmailChangeUseCase(
+        user_repo, email_change_token_repo, email_sender, token_service,
+        settings.email_change_expire_minutes, settings.frontend_base_url,
+    )
+
+
+def get_confirm_email_change_use_case(
+    user_repo: UserRepository = Depends(get_user_repository),
+    email_change_token_repo: EmailChangeTokenRepository = Depends(get_email_change_token_repository),
+    token_service: TokenService = Depends(get_token_service),
+) -> ConfirmEmailChangeUseCase:
+    return ConfirmEmailChangeUseCase(user_repo, email_change_token_repo, token_service)
+
+
 def get_delete_user_use_case(
     user_repo: UserRepository = Depends(get_user_repository),
 ) -> DeleteUserUseCase:
@@ -451,6 +483,7 @@ __all__ = [
     "get_library_repository",
     "get_membership_repository",
     "get_password_reset_token_repository",
+    "get_email_change_token_repository",
     "get_email_sender",
     "get_password_hasher",
     "get_register_library_use_case",
@@ -461,6 +494,8 @@ __all__ = [
     "get_reset_password_use_case",
     "get_create_user_use_case",
     "get_update_user_use_case",
+    "get_request_email_change_use_case",
+    "get_confirm_email_change_use_case",
     "get_delete_user_use_case",
     "get_upload_avatar_use_case",
     "get_delete_avatar_use_case",

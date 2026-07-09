@@ -52,3 +52,11 @@ class InvalidResetTokenError(ValueError):
 
 class ResetTokenAlreadyUsedError(InvalidResetTokenError):
     """A password-reset/invite token has already been consumed."""
+
+
+class InvalidEmailChangeTokenError(ValueError):
+    """An email-change verification token is unknown, expired, or otherwise unusable."""
+
+
+class EmailChangeTokenAlreadyUsedError(InvalidEmailChangeTokenError):
+    """An email-change verification token has already been consumed."""

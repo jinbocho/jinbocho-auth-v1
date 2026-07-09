@@ -1,0 +1,26 @@
+{% extends "_base.html" %}
+{% block preheader %}Confirm the new email address for your Jinbocho account — link valid 30 minutes.{% endblock %}
+{% block content %}
+<h2 class="email-title">Confirm your new email address</h2>
+<p class="email-meta">Security &middot; Email Change</p>
+<p class="email-text">
+  Someone requested to change the email address on a Jinbocho account to this one.
+  Click the button below to confirm it.
+</p>
+<p class="email-note">
+  This link expires in <strong>30 minutes</strong>.
+  If you didn&rsquo;t request this, you can safely ignore this email &mdash; the account's email address will not change.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" class="cta-table">
+  <tr>
+    <td class="cta-cell">
+      <a href="{{ link }}" class="cta-link">Confirm my new email</a>
+    </td>
+  </tr>
+</table>
+<p class="fallback-block">
+  Or copy this link into your browser:<br />
+  <a href="{{ link }}" class="fallback-link">{{ link }}</a>
+</p>
+{% endblock %}
+{% block footer_text %}Home Library Management{% endblock %}

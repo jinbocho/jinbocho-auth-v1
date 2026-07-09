@@ -1,0 +1,7 @@
+Hai richiesto di cambiare l'indirizzo email del tuo account Jinbocho con questo.
+
+Clicca il link qui sotto per confermare questo indirizzo (valido 30 minuti):
+
+{{ link }}
+
+Se non hai fatto questa richiesta, puoi ignorare questa email — l'indirizzo email del tuo account non cambierà.

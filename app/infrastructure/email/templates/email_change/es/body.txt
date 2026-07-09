@@ -1,0 +1,7 @@
+Has solicitado cambiar la dirección de email de tu cuenta Jinbocho a esta.
+
+Haz clic en el enlace a continuación para confirmar esta dirección (válido 30 minutos):
+
+{{ link }}
+
+Si no realizaste esta solicitud, puedes ignorar este correo — la dirección de email de tu cuenta no cambiará.

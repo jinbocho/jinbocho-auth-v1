@@ -3,8 +3,18 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from app.application.ports import EmailService
-from app.domain.entities import Library, LibraryMembership, MembershipStatus, PasswordResetToken, RefreshToken, User, UserRole
+from app.domain.entities import (
+    EmailChangeToken,
+    Library,
+    LibraryMembership,
+    MembershipStatus,
+    PasswordResetToken,
+    RefreshToken,
+    User,
+    UserRole,
+)
 from app.domain.repositories import (
+    EmailChangeTokenRepository,
     LibraryRepository,
     MembershipRepository,
     PasswordResetTokenRepository,
@@ -169,6 +179,31 @@ class MockPasswordResetTokenRepository(PasswordResetTokenRepository):
         return 0
 
 
+class MockEmailChangeTokenRepository(EmailChangeTokenRepository):
+    def __init__(self):
+        self.tokens = {}
+
+    async def save(self, token: EmailChangeToken) -> EmailChangeToken:
+        self.tokens[token.id] = token
+        return token
+
+    async def find_by_token_hash(self, token_hash: str) -> EmailChangeToken | None:
+        for token in self.tokens.values():
+            if token.token_hash == token_hash:
+                return token
+        return None
+
+    async def mark_used(self, token_id, used_at) -> None:
+        token = self.tokens.get(token_id)
+        if token:
+            token.used_at = used_at
+
+    async def invalidate_pending(self, user_id, used_at) -> None:
+        for token in self.tokens.values():
+            if token.user_id == user_id and token.used_at is None:
+                token.used_at = used_at
+
+
 class FakeEmailSender(EmailService):
     """Captures sent messages instead of touching SMTP/stdout, for assertions in tests."""
 
@@ -220,6 +255,13 @@ class FakeEmailSender(EmailService):
             }
         )
 
+    def send_email_change_verification(
+        self, to_email: str, link: str, language: str | None = None
+    ) -> None:
+        self.sent.append(
+            {"to_email": to_email, "link": link, "purpose": "email_change", "language": language}
+        )
+
 
 # static guard: mypy fails here if FakeEmailSender diverges from EmailService port
 _check: EmailService = FakeEmailSender()
@@ -242,6 +284,7 @@ def test_settings():
         refresh_token_expire_days=30,
         password_reset_expire_minutes=15,
         invite_expire_minutes=10080,
+        email_change_expire_minutes=30,
         frontend_base_url="http://localhost:5173",
         smtp_host=None,
         smtp_port=587,
@@ -273,6 +316,11 @@ def mock_user_repo():
 @pytest.fixture
 def mock_password_reset_token_repo():
     return MockPasswordResetTokenRepository()
+
+
+@pytest.fixture
+def mock_email_change_token_repo():
+    return MockEmailChangeTokenRepository()
 
 
 @pytest.fixture

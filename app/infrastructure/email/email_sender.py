@@ -156,6 +156,25 @@ class EmailSender:
             console_link="",
         )
 
+    def send_email_change_verification(
+        self,
+        to_email: str,
+        link: str,
+        language: str | None = None,
+    ) -> None:
+        """Confirm the user actually controls the NEW address before the
+        account's email of record changes. Sent to ``to_email`` (the
+        candidate new address), never to the current one."""
+        email = self._renderer.render("email_change", language, {"link": link})
+        self._send(
+            to_email,
+            subject=email.subject,
+            body_text=email.body_text,
+            body_html=email.body_html,
+            log_context="email change verification",
+            console_link=link,
+        )
+
     def _send(
         self,
         to_email: str,

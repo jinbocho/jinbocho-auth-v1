@@ -22,6 +22,7 @@ from app.domain.exceptions import (
     InactiveUserError,
     IncorrectPasswordError,
     InvalidCredentialsError,
+    InvalidEmailChangeTokenError,
     InvalidResetTokenError,
     LastAdminError,
     NotAMemberError,
@@ -69,6 +70,7 @@ def configure_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(EntityNotFoundError, _make_handler(status.HTTP_404_NOT_FOUND))
     app.add_exception_handler(ConfirmationMismatchError, _make_handler(status.HTTP_400_BAD_REQUEST))
     app.add_exception_handler(InvalidResetTokenError, _make_handler(status.HTTP_400_BAD_REQUEST))
+    app.add_exception_handler(InvalidEmailChangeTokenError, _make_handler(status.HTTP_400_BAD_REQUEST))
     app.add_exception_handler(EmailAlreadyRegisteredError, _make_handler(status.HTTP_409_CONFLICT))
     app.add_exception_handler(LastAdminError, _make_handler(status.HTTP_409_CONFLICT))
     # RegisterLibraryUseCase relies on the DB's unique constraint on email

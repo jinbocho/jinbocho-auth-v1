@@ -9,6 +9,8 @@ from .resend_invite import ResendInviteUseCase, ResendInviteInput
 from .export_library_data import ExportLibraryDataUseCase, ExportLibraryDataInput, ExportLibraryDataOutput, UserExportData
 from .import_users import ImportUsersUseCase, ImportUsersInput, ImportUsersOutput, ImportUserItem
 from .search_users import SearchUsersUseCase, SearchUsersInput, SearchUsersOutput, UserSearchResult
+from .request_email_change import RequestEmailChangeUseCase, RequestEmailChangeInput
+from .confirm_email_change import ConfirmEmailChangeUseCase, ConfirmEmailChangeInput
 
 __all__ = [
     "CreateUserUseCase",
@@ -43,4 +45,8 @@ __all__ = [
     "SearchUsersInput",
     "SearchUsersOutput",
     "UserSearchResult",
+    "RequestEmailChangeUseCase",
+    "RequestEmailChangeInput",
+    "ConfirmEmailChangeUseCase",
+    "ConfirmEmailChangeInput",
 ]

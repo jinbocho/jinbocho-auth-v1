@@ -39,3 +39,10 @@ class EmailService(Protocol):
         due_date: datetime,
         language: str | None = None,
     ) -> None: ...
+
+    def send_email_change_verification(
+        self,
+        to_email: str,
+        link: str,
+        language: str | None = None,
+    ) -> None: ...

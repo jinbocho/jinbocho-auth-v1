@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Request, Response, UploadFile, status
 
 from app.api.dependencies import (
     JWTPayload,
@@ -10,6 +10,7 @@ from app.api.dependencies import (
     get_library_repository,
     get_import_users_use_case,
     get_membership_repository,
+    get_request_email_change_use_case,
     get_resend_invite_use_case,
     get_search_users_use_case,
     get_update_user_use_case,
@@ -26,7 +27,7 @@ from app.api.v1.schemas.export_schemas import (
     ImportUsersResponse,
     UserExportItem,
 )
-from app.api.v1.schemas.user_schemas import MeUpdate, UserCreate, UserResponse, UserUpdate
+from app.api.v1.schemas.user_schemas import EmailChangeRequest, MeUpdate, UserCreate, UserResponse, UserUpdate
 from app.application.use_cases.users import (
     CreateUserInput,
     CreateUserUseCase,
@@ -43,6 +44,8 @@ from app.application.use_cases.users import (
     ImportUsersUseCase,
     ListUsersInput,
     ListUsersUseCase,
+    RequestEmailChangeInput,
+    RequestEmailChangeUseCase,
     ResendInviteInput,
     ResendInviteUseCase,
     SearchUsersInput,
@@ -153,7 +156,8 @@ async def search_users(
     "/me",
     response_model=UserResponse,
     summary="Update current user",
-    description="Update own profile. Any authenticated user can update their own name and reading goal."
+    description="Update own profile. Any authenticated user can update their own name and reading goal. "
+    "To change the email address, see POST /users/me/email/change instead."
 )
 async def update_me(
     request: MeUpdate,
@@ -173,6 +177,30 @@ async def update_me(
         )
     )
     return UserResponse.model_validate(result)
+
+
+@router.post(
+    "/me/email/change",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Request an email address change",
+    description="Send a verification link to the new address. The account's email of record "
+    "does not change until that link is confirmed (see POST /auth/confirm-email-change), so a "
+    "typo'd or unreachable address can never lock the account out.",
+    responses={
+        409: {"description": "Email already registered to another account"},
+    }
+)
+@limiter.limit("3/minute")
+async def request_email_change(
+    request: Request,
+    body: EmailChangeRequest,
+    payload: JWTPayload = Depends(require_library_context),
+    use_case: RequestEmailChangeUseCase = Depends(get_request_email_change_use_case),
+) -> Response:
+    await use_case.execute(
+        RequestEmailChangeInput(user_id=UUID(payload["sub"]), new_email=body.new_email)
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.patch(

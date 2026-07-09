@@ -1,0 +1,7 @@
+You requested to change the email address on your Jinbocho account to this one.
+
+Click the link below to confirm this address (valid for 30 minutes):
+
+{{ link }}
+
+If you didn't request this, you can safely ignore this email — your account's email address will not change.

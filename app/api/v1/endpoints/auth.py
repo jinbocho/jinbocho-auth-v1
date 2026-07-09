@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Request, Response, status
 
 from app.api.dependencies import (
+    get_confirm_email_change_use_case,
     get_forgot_password_use_case,
     get_login_use_case,
     get_logout_use_case,
@@ -9,6 +10,7 @@ from app.api.dependencies import (
     get_reset_password_use_case,
 )
 from app.api.v1.schemas.auth_schemas import (
+    ConfirmEmailChangeRequest,
     ForgotPasswordRequest,
     LoginRequest,
     LogoutRequest,
@@ -32,6 +34,7 @@ from app.application.use_cases.auth import (
     ResetPasswordInput,
     ResetPasswordUseCase,
 )
+from app.application.use_cases.users import ConfirmEmailChangeInput, ConfirmEmailChangeUseCase
 from app.limiter import limiter
 
 router = APIRouter()
@@ -150,4 +153,27 @@ async def reset_password(
     use_case: ResetPasswordUseCase = Depends(get_reset_password_use_case),
 ) -> Response:
     await use_case.execute(ResetPasswordInput(token=body.token, new_password=body.new_password))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/confirm-email-change",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Confirm an email address change",
+    description="Consume an email-change verification token, sent to the new address by "
+    "POST /users/me/email/change. Token is single-use and expires in 30 minutes. "
+    "Unauthenticated: the token itself is the credential, since the link may be opened on a "
+    "different device/session than the one that requested the change.",
+    responses={
+        400: {"description": "Invalid, expired, or already-used token"},
+        409: {"description": "Email already registered to another account"},
+    },
+)
+@limiter.limit("5/minute")
+async def confirm_email_change(
+    request: Request,
+    body: ConfirmEmailChangeRequest,
+    use_case: ConfirmEmailChangeUseCase = Depends(get_confirm_email_change_use_case),
+) -> Response:
+    await use_case.execute(ConfirmEmailChangeInput(token=body.token))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
