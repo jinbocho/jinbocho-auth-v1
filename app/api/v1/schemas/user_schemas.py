@@ -24,6 +24,9 @@ class UserResponse(BaseModel):
     password_set_at: datetime | None = Field(
         default=None, description="When the user set their own password; null means their invite is still pending"
     )
+    tour_completed_at: datetime | None = Field(
+        default=None, description="When the user completed the onboarding tour; null means it hasn't been shown yet"
+    )
 
 
 class UserCreate(BaseModel):

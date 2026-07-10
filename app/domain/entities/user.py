@@ -37,6 +37,9 @@ class User:
     # UX hint only ("land here on next login") — never the source of
     # authorization, which always comes from an active LibraryMembership.
     last_selected_library_id: UUID | None = None
+    # Server-set only (mirrors password_set_at/consent_at) — never accept a
+    # client-supplied timestamp here; the tour endpoints set/clear it.
+    tour_completed_at: datetime | None = None
     id: UUID = field(default_factory=uuid4)
     created_at: datetime = field(default_factory=_utcnow)
     updated_at: datetime = field(default_factory=_utcnow)

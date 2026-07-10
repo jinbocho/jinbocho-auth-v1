@@ -13,6 +13,7 @@ from app.api.dependencies import (
     get_request_email_change_use_case,
     get_resend_invite_use_case,
     get_search_users_use_case,
+    get_update_tour_status_use_case,
     get_update_user_use_case,
     get_upload_avatar_use_case,
     get_user_repository,
@@ -52,6 +53,8 @@ from app.application.use_cases.users import (
     SearchUsersUseCase,
     UpdateUserInput,
     UpdateUserUseCase,
+    UpdateTourStatusInput,
+    UpdateTourStatusUseCase,
     UploadAvatarInput,
     UploadAvatarUseCase,
 )
@@ -177,6 +180,48 @@ async def update_me(
         )
     )
     return UserResponse.model_validate(result)
+
+
+@router.post(
+    "/me/tour/complete",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Mark the onboarding tour as completed",
+    description="Called when the current user finishes or skips the onboarding tour, so it "
+    "doesn't reappear on next login."
+)
+async def complete_tour(
+    payload: JWTPayload = Depends(require_library_context),
+    use_case: UpdateTourStatusUseCase = Depends(get_update_tour_status_use_case),
+) -> Response:
+    await use_case.execute(
+        UpdateTourStatusInput(
+            user_id=UUID(payload["sub"]),
+            requester_library_id=UUID(payload["library_id"]),
+            completed=True,
+        )
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/me/tour/reset",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Reset the onboarding tour",
+    description="Clears the current user's tour-completed marker so it is shown again on next "
+    "dashboard visit. Powers the 'review tour' action in Settings."
+)
+async def reset_tour(
+    payload: JWTPayload = Depends(require_library_context),
+    use_case: UpdateTourStatusUseCase = Depends(get_update_tour_status_use_case),
+) -> Response:
+    await use_case.execute(
+        UpdateTourStatusInput(
+            user_id=UUID(payload["sub"]),
+            requester_library_id=UUID(payload["library_id"]),
+            completed=False,
+        )
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(

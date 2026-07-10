@@ -3,6 +3,12 @@ from .decline_invitation import DeclineInvitationInput, DeclineInvitationUseCase
 from .get_member import GetMemberInput, GetMemberOutput, GetMemberUseCase
 from .invite_member import InviteMemberInput, InviteMemberOutput, InviteMemberUseCase
 from .list_members import ListMembersInput, ListMembersOutput, ListMembersUseCase, MemberSummary
+from .list_membership_activity import (
+    ListMembershipActivityInput,
+    ListMembershipActivityOutput,
+    ListMembershipActivityUseCase,
+    MembershipActivityItem,
+)
 from .remove_membership import RemoveMembershipInput, RemoveMembershipUseCase
 from .search_members import MemberSearchResult, SearchMembersInput, SearchMembersOutput, SearchMembersUseCase
 from .update_membership import UpdateMembershipInput, UpdateMembershipUseCase
@@ -21,6 +27,10 @@ __all__ = [
     "ListMembersInput",
     "ListMembersOutput",
     "ListMembersUseCase",
+    "ListMembershipActivityInput",
+    "ListMembershipActivityOutput",
+    "ListMembershipActivityUseCase",
+    "MembershipActivityItem",
     "MemberSearchResult",
     "MemberSummary",
     "RemoveMembershipInput",

@@ -75,6 +75,19 @@ class GlobalUserSearchResultResponse(BaseModel):
     email: EmailStr
 
 
+class MembershipActivityResponse(BaseModel):
+    """Recent member-added/member-removed events for the dashboard activity
+    feed. Open to any active member (unlike MemberResponse's roster, which is
+    admin-only) — deliberately excludes email, only full_name/avatar."""
+
+    user_id: UUID
+    full_name: str
+    avatar_url: str | None = None
+    role: str
+    event: str = Field(description="member_added or member_removed")
+    occurred_at: datetime
+
+
 class MemberProfileResponse(BaseModel):
     """Single member's basic profile — open to any active member (unlike
     MemberResponse's roster, which is admin-only), for viewing a fellow

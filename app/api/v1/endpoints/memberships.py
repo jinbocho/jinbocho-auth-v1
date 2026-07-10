@@ -7,6 +7,7 @@ from app.api.dependencies import (
     get_get_member_use_case,
     get_invite_member_use_case,
     get_list_members_use_case,
+    get_list_membership_activity_use_case,
     get_remove_membership_use_case,
     get_search_members_use_case,
     get_update_membership_use_case,
@@ -15,6 +16,7 @@ from app.api.dependencies import (
 )
 from app.api.v1.schemas.context_schemas import (
     InviteMemberRequest,
+    MembershipActivityResponse,
     MemberProfileResponse,
     MemberResponse,
     MemberSearchResultResponse,
@@ -27,6 +29,8 @@ from app.application.use_cases.memberships import (
     InviteMemberUseCase,
     ListMembersInput,
     ListMembersUseCase,
+    ListMembershipActivityInput,
+    ListMembershipActivityUseCase,
     RemoveMembershipInput,
     RemoveMembershipUseCase,
     SearchMembersInput,
@@ -90,6 +94,31 @@ async def list_members(
             avatar_url=m.avatar_url,
         )
         for m in result.members
+    ]
+
+
+@router.get(
+    "/{library_id}/members/activity",
+    response_model=list[MembershipActivityResponse],
+    summary="Recent member-added/member-removed events for the dashboard activity feed",
+    description="Open to any active member (unlike the full roster, which is admin-only). "
+    "Registered before the /{user_id} route below so 'activity' is matched as a literal "
+    "path segment rather than an attempted UUID."
+)
+async def get_membership_activity(
+    library_id: UUID,
+    limit: int = 20,
+    payload: JWTPayload = Depends(require_library_context),
+    use_case: ListMembershipActivityUseCase = Depends(get_list_membership_activity_use_case),
+) -> list[MembershipActivityResponse]:
+    _require_same_library(payload, library_id)
+    result = await use_case.execute(ListMembershipActivityInput(library_id=library_id, limit=min(limit, 50)))
+    return [
+        MembershipActivityResponse(
+            user_id=i.user_id, full_name=i.full_name, avatar_url=i.avatar_url,
+            role=i.role.value, event=i.event, occurred_at=i.occurred_at,
+        )
+        for i in result.items
     ]
 
 

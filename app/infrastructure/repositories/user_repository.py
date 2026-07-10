@@ -32,6 +32,7 @@ class SQLAlchemyUserRepository(UserRepository):
             consent_terms_version=model.consent_terms_version,
             consent_at=model.consent_at,
             last_selected_library_id=model.last_selected_library_id,
+            tour_completed_at=model.tour_completed_at,
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
@@ -55,6 +56,7 @@ class SQLAlchemyUserRepository(UserRepository):
             consent_terms_version=user.consent_terms_version,
             consent_at=user.consent_at,
             last_selected_library_id=user.last_selected_library_id,
+            tour_completed_at=user.tour_completed_at,
             created_at=user.created_at,
             updated_at=user.updated_at,
         )

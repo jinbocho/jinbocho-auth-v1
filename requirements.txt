@@ -24,7 +24,11 @@ prometheus-fastapi-instrumentator>=7.0,<8
 opentelemetry-api>=1.29,<2
 opentelemetry-sdk>=1.29,<2
 opentelemetry-exporter-otlp-proto-http>=1.29,<2
-opentelemetry-instrumentation-fastapi>=0.50b0
-opentelemetry-instrumentation-httpx>=0.50b0
-opentelemetry-instrumentation-sqlalchemy>=0.50b0
-opentelemetry-instrumentation-logging>=0.50b0
+# Upper-bounded: 0.65b0 changed LoggingInstrumentor.instrument() semantics —
+# set_logging_format=False alone stopped injecting otelTraceID/otelSpanID onto
+# LogRecords (now requires inject_trace_context=True, see telemetry.py). Bump
+# only after re-verifying record injection still works with the new version.
+opentelemetry-instrumentation-fastapi>=0.50b0,<0.65b0
+opentelemetry-instrumentation-httpx>=0.50b0,<0.65b0
+opentelemetry-instrumentation-sqlalchemy>=0.50b0,<0.65b0
+opentelemetry-instrumentation-logging>=0.50b0,<0.65b0

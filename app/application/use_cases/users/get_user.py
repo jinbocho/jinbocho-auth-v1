@@ -30,6 +30,7 @@ class GetUserOutput:
     theme_mode: ThemeMode | None = None
     avatar_url: str | None = None
     password_set_at: datetime | None = None
+    tour_completed_at: datetime | None = None
 
 
 class GetUserUseCase:
@@ -66,4 +67,5 @@ class GetUserUseCase:
             theme_mode=user.theme_mode,
             avatar_url=user.avatar_url,
             password_set_at=user.password_set_at,
+            tour_completed_at=user.tour_completed_at,
         )

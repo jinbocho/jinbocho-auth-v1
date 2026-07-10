@@ -1,4 +1,5 @@
 import pytest
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from app.application.use_cases.context import (
@@ -18,6 +19,8 @@ from app.application.use_cases.memberships import (
     InviteMemberUseCase,
     ListMembersInput,
     ListMembersUseCase,
+    ListMembershipActivityInput,
+    ListMembershipActivityUseCase,
     RemoveMembershipInput,
     RemoveMembershipUseCase,
     SearchMembersInput,
@@ -393,3 +396,79 @@ async def test_remove_membership_revokes_without_touching_other_libraries(mock_m
     untouched = await mock_membership_repo.find_by_user_and_library(user_id, library_b)
     assert revoked.status == MembershipStatus.REVOKED
     assert untouched.status == MembershipStatus.ACTIVE
+
+
+@pytest.mark.asyncio
+async def test_membership_activity_includes_added_and_removed(mock_membership_repo, mock_user_repo, password_hasher):
+    library_id = uuid4()
+    joined = await _user(mock_user_repo, password_hasher, email="joined@example.com", full_name="Joined User")
+    removed = await _user(mock_user_repo, password_hasher, email="removed@example.com", full_name="Removed User")
+
+    now = datetime.now(timezone.utc)
+    await mock_membership_repo.save(
+        LibraryMembership(
+            user_id=joined.id, library_id=library_id, role=UserRole.EDITOR,
+            status=MembershipStatus.ACTIVE, invited_at=now,
+        )
+    )
+    revoked_membership = LibraryMembership(
+        user_id=removed.id, library_id=library_id, role=UserRole.VIEWER,
+        status=MembershipStatus.REVOKED, invited_at=now - timedelta(days=30),
+    )
+    revoked_membership.updated_at = now - timedelta(minutes=1)
+    await mock_membership_repo.save(revoked_membership)
+
+    use_case = ListMembershipActivityUseCase(mock_membership_repo, mock_user_repo)
+    result = await use_case.execute(ListMembershipActivityInput(library_id=library_id))
+
+    events = {(item.full_name, item.event) for item in result.items}
+    assert events == {("Joined User", "member_added"), ("Removed User", "member_removed")}
+    # Most recent first: the add (now) precedes the removal (now - 1 minute).
+    assert result.items[0].full_name == "Joined User"
+    assert result.items[1].full_name == "Removed User"
+
+
+@pytest.mark.asyncio
+async def test_membership_activity_includes_founding_admin_without_invited_at(
+    mock_membership_repo, mock_user_repo, password_hasher
+):
+    """Regression: RegisterLibraryUseCase creates the founding admin's
+    membership with joined_at set but invited_at left None (it never went
+    through InviteMemberUseCase) — the activity feed used to silently skip
+    that row entirely, found via live testing against a freshly-registered
+    library."""
+    library_id = uuid4()
+    admin = await _user(mock_user_repo, password_hasher, email="admin@example.com", full_name="Founding Admin")
+    now = datetime.now(timezone.utc)
+    await mock_membership_repo.save(
+        LibraryMembership(
+            user_id=admin.id, library_id=library_id, role=UserRole.ADMIN,
+            status=MembershipStatus.ACTIVE, invited_at=None, joined_at=now,
+        )
+    )
+
+    use_case = ListMembershipActivityUseCase(mock_membership_repo, mock_user_repo)
+    result = await use_case.execute(ListMembershipActivityInput(library_id=library_id))
+
+    assert len(result.items) == 1
+    assert result.items[0].full_name == "Founding Admin"
+    assert result.items[0].event == "member_added"
+
+
+@pytest.mark.asyncio
+async def test_membership_activity_respects_limit(mock_membership_repo, mock_user_repo, password_hasher):
+    library_id = uuid4()
+    now = datetime.now(timezone.utc)
+    for i in range(5):
+        user = await _user(mock_user_repo, password_hasher, email=f"user{i}@example.com")
+        await mock_membership_repo.save(
+            LibraryMembership(
+                user_id=user.id, library_id=library_id, role=UserRole.VIEWER,
+                status=MembershipStatus.ACTIVE, invited_at=now - timedelta(minutes=i),
+            )
+        )
+
+    use_case = ListMembershipActivityUseCase(mock_membership_repo, mock_user_repo)
+    result = await use_case.execute(ListMembershipActivityInput(library_id=library_id, limit=2))
+
+    assert len(result.items) == 2

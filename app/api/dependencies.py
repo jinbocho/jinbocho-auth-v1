@@ -31,6 +31,7 @@ from app.application.use_cases.memberships import (
     GetMemberUseCase,
     InviteMemberUseCase,
     ListMembersUseCase,
+    ListMembershipActivityUseCase,
     RemoveMembershipUseCase,
     SearchMembersUseCase,
     UpdateMembershipUseCase,
@@ -44,6 +45,7 @@ from app.application.use_cases.users import (
     ResendInviteUseCase,
     SearchUsersUseCase,
     UpdateUserUseCase,
+    UpdateTourStatusUseCase,
     DeleteUserUseCase,
     UploadAvatarUseCase,
 )
@@ -299,6 +301,13 @@ def get_get_member_use_case(
     return GetMemberUseCase(membership_repo, user_repo)
 
 
+def get_list_membership_activity_use_case(
+    membership_repo: MembershipRepository = Depends(get_membership_repository),
+    user_repo: UserRepository = Depends(get_user_repository),
+) -> ListMembershipActivityUseCase:
+    return ListMembershipActivityUseCase(membership_repo, user_repo)
+
+
 def get_search_members_use_case(
     membership_repo: MembershipRepository = Depends(get_membership_repository),
     user_repo: UserRepository = Depends(get_user_repository),
@@ -384,6 +393,13 @@ def get_update_user_use_case(
     membership_repo: MembershipRepository = Depends(get_membership_repository),
 ) -> UpdateUserUseCase:
     return UpdateUserUseCase(user_repo, membership_repo)
+
+
+def get_update_tour_status_use_case(
+    user_repo: UserRepository = Depends(get_user_repository),
+    membership_repo: MembershipRepository = Depends(get_membership_repository),
+) -> UpdateTourStatusUseCase:
+    return UpdateTourStatusUseCase(user_repo, membership_repo)
 
 
 def get_request_email_change_use_case(
@@ -494,6 +510,7 @@ __all__ = [
     "get_reset_password_use_case",
     "get_create_user_use_case",
     "get_update_user_use_case",
+    "get_update_tour_status_use_case",
     "get_request_email_change_use_case",
     "get_confirm_email_change_use_case",
     "get_delete_user_use_case",
@@ -513,6 +530,7 @@ __all__ = [
     "get_get_member_use_case",
     "get_invite_member_use_case",
     "get_list_members_use_case",
+    "get_list_membership_activity_use_case",
     "get_search_members_use_case",
     "get_search_users_use_case",
     "get_update_membership_use_case",
