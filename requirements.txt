@@ -32,3 +32,8 @@ opentelemetry-instrumentation-fastapi>=0.50b0,<0.65b0
 opentelemetry-instrumentation-httpx>=0.50b0,<0.65b0
 opentelemetry-instrumentation-sqlalchemy>=0.50b0,<0.65b0
 opentelemetry-instrumentation-logging>=0.50b0,<0.65b0
+
+# Error tracking (ADR-012 Phase 1) — Sentry-protocol events, works unmodified
+# against GlitchTip (self-hosted) or Sentry Cloud EU. Inert unless SENTRY_DSN
+# is set, see app/core/error_tracking.py.
+sentry-sdk[fastapi]>=2.0,<3

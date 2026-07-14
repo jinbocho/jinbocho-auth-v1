@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     otel_enabled: bool = False
     otel_exporter_otlp_endpoint: str = "http://alloy:4318"
 
+    # Error tracking (ADR-012 Phase 1) — off by default. Point at a GlitchTip
+    # instance or Sentry Cloud (EU region); only unhandled 5xx bugs are ever
+    # reported (see configure_error_tracking).
+    sentry_dsn: str | None = None
+    sentry_environment: str = "production"
+
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).parent.parent / ".env"),
         env_file_encoding="utf-8",
