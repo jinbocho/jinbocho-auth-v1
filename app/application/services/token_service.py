@@ -15,7 +15,14 @@ class TokenService:
     def __init__(self, settings: Settings):
         self._settings = settings
 
-    def create_access_token(self, user_id: str, email: str, library_id: str | None, role: str | None) -> str:
+    def create_access_token(
+        self,
+        user_id: str,
+        email: str,
+        library_id: str | None,
+        role: str | None,
+        kids_mode_enabled: bool = False,
+    ) -> str:
         """Create a signed JWT access token.
 
         library_id/role are omitted (not merely null) when the user hasn't
@@ -24,6 +31,11 @@ class TokenService:
         and ai-service already `require` the library_id claim to be present,
         so a context-less token is rejected by them automatically without any
         change on their side.
+
+        kids_mode_enabled mirrors the target library's flag at issuance time —
+        catalog-service's kids-mode use cases re-check it on every request
+        (rather than trusting a stale claim indefinitely), so staleness here
+        is bounded by the access token's short expiry.
         """
         now = self.utcnow()
         payload = {
@@ -33,6 +45,7 @@ class TokenService:
             "aud": self._settings.jwt_audience,
             "iat": now,
             "exp": now + timedelta(minutes=self._settings.access_token_expire_minutes),
+            "kids_mode_enabled": kids_mode_enabled,
         }
         if library_id is not None:
             payload["library_id"] = library_id

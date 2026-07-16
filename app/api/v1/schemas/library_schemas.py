@@ -10,12 +10,14 @@ class LibraryResponse(BaseModel):
     id: UUID = Field(description="Library ID")
     name: str = Field(description="Library name")
     description: str | None = Field(default=None, description="Optional library description")
+    kids_mode_enabled: bool = Field(default=False, description="Whether kids mode (child accounts) is enabled")
 
 
 class LibraryUpdate(BaseModel):
     """Request body to update library information."""
     name: str | None = Field(default=None, description="New library name")
     description: str | None = Field(default=None, description="New library description")
+    kids_mode_enabled: bool | None = Field(default=None, description="Enable/disable kids mode for this library")
 
     model_config = ConfigDict(
         json_schema_extra={

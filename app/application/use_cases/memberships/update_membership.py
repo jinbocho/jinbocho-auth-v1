@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from app.domain.entities import MembershipStatus, UserRole
-from app.domain.exceptions import EntityNotFoundError, LastAdminError
+from app.domain.exceptions import EntityNotFoundError, ForbiddenError, LastAdminError
 from app.domain.repositories import MembershipRepository
 
 logger = logging.getLogger(__name__)
@@ -35,6 +35,14 @@ class UpdateMembershipUseCase:
         membership = await self._membership_repo.find_by_user_and_library(input.target_user_id, input.library_id)
         if membership is None or membership.status == MembershipStatus.REVOKED:
             raise EntityNotFoundError("Membership not found")
+
+        # Child accounts only come from the dedicated create-child flow (fake
+        # @kids.jinbocho.internal email, guardian-routed password resets) —
+        # this generic endpoint may demote a child to a normal role (e.g. once
+        # they're old enough for their own email) but must never promote an
+        # existing member to "child", which would skip that setup entirely.
+        if input.role == UserRole.CHILD and membership.role != UserRole.CHILD:
+            raise ForbiddenError("Child accounts can only be created via the dedicated child-account flow")
 
         demoting_admin = input.role is not None and input.role != UserRole.ADMIN
         suspending = input.status == MembershipStatus.SUSPENDED

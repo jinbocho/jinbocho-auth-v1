@@ -11,6 +11,7 @@ def _utcnow() -> datetime:
 class Library:
     name: str
     description: str | None = None
+    kids_mode_enabled: bool = False
     id: UUID = field(default_factory=uuid4)
     created_at: datetime = field(default_factory=_utcnow)
     updated_at: datetime = field(default_factory=_utcnow)

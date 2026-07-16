@@ -37,8 +37,11 @@ async def issue_password_setup_link(
     )
 
     link = f"{frontend_base_url}/reset-password?token={raw_token}&mode={purpose}"
+    # Child accounts have a non-deliverable generated `email` — route
+    # recovery links to the guardian who created the account instead.
+    send_to = user.guardian_email or user.email
     await asyncio.to_thread(
         email_sender.send_password_setup_link,
-        user.email, link, purpose=purpose,
+        send_to, link, purpose=purpose,
         language=user.language.value if user.language else None,
     )

@@ -34,6 +34,25 @@ class InviteMemberRequest(BaseModel):
     role: str = Field(description="Role to grant: admin, editor, or viewer")
 
 
+class CreateChildRequest(BaseModel):
+    """Kids-mode-only: a parent (admin/editor) creates a self-service account
+    for a child. No email is collected — the login identifier is generated
+    server-side (see CreateChildAccountUseCase) and returned in the response
+    for the parent to save/share with the child."""
+
+    full_name: str = Field(min_length=1, max_length=255, description="Child's display name")
+    password: str = Field(min_length=8, description="Password the child will log in with (min 8 chars)")
+
+
+class ChildAccountResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    user_id: UUID
+    membership_id: UUID
+    full_name: str
+    email: EmailStr = Field(description="System-generated login identifier — not a real, reachable inbox")
+
+
 class MemberResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -49,7 +68,12 @@ class MemberResponse(BaseModel):
 
 
 class UpdateMembershipRequest(BaseModel):
-    role: str | None = Field(default=None, description="New role: admin, editor, or viewer")
+    role: str | None = Field(
+        default=None,
+        description="New role: admin, editor, or viewer. Demoting an existing child account to one of these "
+        "is allowed, but assigning 'child' to a non-child member is rejected — child accounts are only "
+        "created via the dedicated child-account flow.",
+    )
     status: str | None = Field(default=None, description="New status: active or suspended")
 
 

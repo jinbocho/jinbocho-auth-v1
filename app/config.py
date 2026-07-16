@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     # us to send a loan-reminder email) — these don't carry a user JWT.
     internal_service_token: str = ""
 
+    # Comma-separated list of modules enabled for this installation — must match
+    # api-gateway's/catalog-service's JINBOCHO_FEATURES. Kids Mode (child
+    # accounts, AI comprehension quizzes) is a Pro-tier feature; until a proper
+    # JWT/plan-based entitlement exists, we gate Library.kids_mode_enabled on
+    # the "ai" module being enabled, since Community edition never ships it.
+    jinbocho_features: str = "catalog,auth"
+
     # Observability (ADR-012) — off by default so a service run without the
     # optional Alloy collector container behaves exactly as before.
     otel_enabled: bool = False
@@ -50,6 +57,10 @@ class Settings(BaseSettings):
         env_file=str(Path(__file__).parent.parent / ".env"),
         env_file_encoding="utf-8",
     )
+
+    @property
+    def ai_module_enabled(self) -> bool:
+        return "ai" in [f.strip() for f in self.jinbocho_features.split(",")]
 
 
 settings = Settings()  # type: ignore[call-arg]  # required fields come from .env / environment

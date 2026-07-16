@@ -69,6 +69,7 @@ async def update_library(
             requester_library_id=UUID(payload["library_id"]),
             name=request.name,
             description=request.description,
+            kids_mode_enabled=request.kids_mode_enabled,
         )
     )
     return LibraryResponse(**result.__dict__)

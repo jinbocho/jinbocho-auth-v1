@@ -5,7 +5,7 @@ from datetime import timedelta
 from app.application.services import TokenService, resolve_active_context
 from app.domain.entities import MembershipStatus, RefreshToken
 from app.domain.exceptions import InactiveUserError, InvalidCredentialsError
-from app.domain.repositories import MembershipRepository, RefreshTokenRepository, UserRepository
+from app.domain.repositories import LibraryRepository, MembershipRepository, RefreshTokenRepository, UserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +29,13 @@ class RefreshTokenUseCase:
         user_repo: UserRepository,
         membership_repo: MembershipRepository,
         refresh_token_repo: RefreshTokenRepository,
+        library_repo: LibraryRepository,
         token_service: TokenService,
     ):
         self._user_repo = user_repo
         self._membership_repo = membership_repo
         self._refresh_token_repo = refresh_token_repo
+        self._library_repo = library_repo
         self._token_service = token_service
 
     async def execute(self, input: RefreshTokenInput) -> RefreshTokenOutput:
@@ -63,14 +65,19 @@ class RefreshTokenUseCase:
 
         library_id: str | None = None
         role: str | None = None
+        kids_mode_enabled = False
         if context is not None:
             chosen_library_id, chosen_role = context
             library_id, role = str(chosen_library_id), chosen_role.value
             chosen_membership = next(m for m in active_memberships if m.library_id == chosen_library_id)
             chosen_membership.last_accessed_at = now
             await self._membership_repo.save(chosen_membership)
+            chosen_library = await self._library_repo.find_by_id(chosen_library_id)
+            kids_mode_enabled = chosen_library.kids_mode_enabled if chosen_library else False
 
-        access_token = self._token_service.create_access_token(str(user.id), user.email, library_id, role)
+        access_token = self._token_service.create_access_token(
+            str(user.id), user.email, library_id, role, kids_mode_enabled
+        )
         new_refresh_token = self._token_service.create_refresh_token()
 
         new_token_entity = RefreshToken(

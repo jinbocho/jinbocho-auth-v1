@@ -29,7 +29,7 @@ from app.application.use_cases.memberships import (
     UpdateMembershipUseCase,
 )
 from app.domain.entities import Library, LibraryMembership, MembershipStatus, User, UserRole
-from app.domain.exceptions import EntityNotFoundError, LastAdminError, NotAMemberError
+from app.domain.exceptions import EntityNotFoundError, ForbiddenError, LastAdminError, NotAMemberError
 
 
 async def _user(mock_user_repo, password_hasher, email="user@example.com", **overrides):
@@ -47,7 +47,7 @@ async def _user(mock_user_repo, password_hasher, email="user@example.com", **ove
 
 @pytest.mark.asyncio
 async def test_select_library_context_succeeds_for_active_membership(
-    mock_user_repo, mock_membership_repo, password_hasher, token_service
+    mock_user_repo, mock_membership_repo, mock_library_repo, password_hasher, token_service
 ):
     library_id = uuid4()
     user = await _user(mock_user_repo, password_hasher)
@@ -55,7 +55,7 @@ async def test_select_library_context_succeeds_for_active_membership(
         LibraryMembership(user_id=user.id, library_id=library_id, role=UserRole.EDITOR, status=MembershipStatus.ACTIVE)
     )
 
-    use_case = SelectLibraryContextUseCase(mock_user_repo, mock_membership_repo, token_service)
+    use_case = SelectLibraryContextUseCase(mock_user_repo, mock_membership_repo, mock_library_repo, token_service)
     result = await use_case.execute(SelectLibraryContextInput(user_id=user.id, library_id=library_id))
 
     assert result.library_id == library_id
@@ -65,9 +65,9 @@ async def test_select_library_context_succeeds_for_active_membership(
 
 
 @pytest.mark.asyncio
-async def test_select_library_context_rejects_non_member(mock_user_repo, mock_membership_repo, password_hasher, token_service):
+async def test_select_library_context_rejects_non_member(mock_user_repo, mock_membership_repo, mock_library_repo, password_hasher, token_service):
     user = await _user(mock_user_repo, password_hasher)
-    use_case = SelectLibraryContextUseCase(mock_user_repo, mock_membership_repo, token_service)
+    use_case = SelectLibraryContextUseCase(mock_user_repo, mock_membership_repo, mock_library_repo, token_service)
 
     with pytest.raises(NotAMemberError):
         await use_case.execute(SelectLibraryContextInput(user_id=user.id, library_id=uuid4()))
@@ -75,7 +75,7 @@ async def test_select_library_context_rejects_non_member(mock_user_repo, mock_me
 
 @pytest.mark.asyncio
 async def test_select_library_context_rejects_revoked_membership(
-    mock_user_repo, mock_membership_repo, password_hasher, token_service
+    mock_user_repo, mock_membership_repo, mock_library_repo, password_hasher, token_service
 ):
     library_id = uuid4()
     user = await _user(mock_user_repo, password_hasher)
@@ -83,7 +83,7 @@ async def test_select_library_context_rejects_revoked_membership(
         LibraryMembership(user_id=user.id, library_id=library_id, role=UserRole.VIEWER, status=MembershipStatus.REVOKED)
     )
 
-    use_case = SelectLibraryContextUseCase(mock_user_repo, mock_membership_repo, token_service)
+    use_case = SelectLibraryContextUseCase(mock_user_repo, mock_membership_repo, mock_library_repo, token_service)
     with pytest.raises(NotAMemberError):
         await use_case.execute(SelectLibraryContextInput(user_id=user.id, library_id=library_id))
 
@@ -365,6 +365,39 @@ async def test_update_membership_allows_demoting_admin_with_another_admin_presen
 
     membership = await mock_membership_repo.find_by_user_and_library(user_id, library_id)
     assert membership.role == UserRole.EDITOR
+
+
+@pytest.mark.asyncio
+async def test_update_membership_rejects_promoting_a_non_child_to_child(mock_membership_repo):
+    """Regression: the FE's edit-member modal was missing "child" as an
+    option entirely, so an admin opening it on an existing child account and
+    saving without touching the role dropdown would silently submit whatever
+    the first option was (admin) — the backend must refuse the reverse
+    direction too, since child accounts only ever come from the dedicated
+    create-child flow (fake email, guardian-routed resets)."""
+    user_id, library_id = uuid4(), uuid4()
+    await mock_membership_repo.save(
+        LibraryMembership(user_id=user_id, library_id=library_id, role=UserRole.VIEWER, status=MembershipStatus.ACTIVE)
+    )
+    use_case = UpdateMembershipUseCase(mock_membership_repo)
+
+    with pytest.raises(ForbiddenError):
+        await use_case.execute(UpdateMembershipInput(library_id=library_id, target_user_id=user_id, role=UserRole.CHILD))
+
+
+@pytest.mark.asyncio
+async def test_update_membership_allows_demoting_a_child_to_a_normal_role(mock_membership_repo):
+    """The one-way direction is fine: a child "growing up" into a normal
+    viewer/editor/admin role via this same generic endpoint."""
+    user_id, library_id = uuid4(), uuid4()
+    await mock_membership_repo.save(
+        LibraryMembership(user_id=user_id, library_id=library_id, role=UserRole.CHILD, status=MembershipStatus.ACTIVE)
+    )
+    use_case = UpdateMembershipUseCase(mock_membership_repo)
+    await use_case.execute(UpdateMembershipInput(library_id=library_id, target_user_id=user_id, role=UserRole.VIEWER))
+
+    membership = await mock_membership_repo.find_by_user_and_library(user_id, library_id)
+    assert membership.role == UserRole.VIEWER
 
 
 @pytest.mark.asyncio

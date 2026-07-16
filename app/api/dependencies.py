@@ -17,6 +17,7 @@ from app.application.use_cases.auth import (
     RequestPasswordResetUseCase,
     ResetPasswordUseCase,
 )
+from app.application.use_cases.children import CreateChildAccountUseCase
 from app.application.use_cases.context import ListMyLibrariesUseCase, SelectLibraryContextUseCase
 from app.application.use_cases.libraries import (
     ConfirmLibraryDeletionUseCase,
@@ -79,6 +80,9 @@ class JWTPayload(TypedDict):
     # selected an active library yet (0 or >1 memberships at login/refresh).
     library_id: NotRequired[str]
     role: NotRequired[str]
+    # Mirrors the target library's Library.kids_mode_enabled at issuance —
+    # absent on context-less tokens, same as library_id/role.
+    kids_mode_enabled: NotRequired[bool]
     iss: str
     aud: str
     iat: int
@@ -210,6 +214,14 @@ def require_role(*roles: str) -> Callable[..., object]:
     return checker
 
 
+# Kids-mode role gates. "child" never appears in any require_role(...)
+# allowlist elsewhere in the codebase, so every pre-existing endpoint already
+# default-denies a child token — these two only *open* the dedicated
+# kids-mode surface (child self-service vs. parent-only management).
+require_child = require_role("child")
+require_parent = require_role("admin", "editor")
+
+
 # ---------------------------------------------------------------------------
 # Use case factories — complex endpoints wire repos/services here, not inline
 # ---------------------------------------------------------------------------
@@ -230,19 +242,23 @@ def get_login_use_case(
     user_repo: UserRepository = Depends(get_user_repository),
     membership_repo: MembershipRepository = Depends(get_membership_repository),
     refresh_token_repo: RefreshTokenRepository = Depends(get_refresh_token_repository),
+    library_repo: LibraryRepository = Depends(get_library_repository),
     token_service: TokenService = Depends(get_token_service),
     password_hasher: PasswordHasher = Depends(get_password_hasher),
 ) -> LoginUseCase:
-    return LoginUseCase(user_repo, membership_repo, refresh_token_repo, token_service, password_hasher)
+    return LoginUseCase(
+        user_repo, membership_repo, refresh_token_repo, library_repo, token_service, password_hasher
+    )
 
 
 def get_refresh_token_use_case(
     user_repo: UserRepository = Depends(get_user_repository),
     membership_repo: MembershipRepository = Depends(get_membership_repository),
     refresh_token_repo: RefreshTokenRepository = Depends(get_refresh_token_repository),
+    library_repo: LibraryRepository = Depends(get_library_repository),
     token_service: TokenService = Depends(get_token_service),
 ) -> RefreshTokenUseCase:
-    return RefreshTokenUseCase(user_repo, membership_repo, refresh_token_repo, token_service)
+    return RefreshTokenUseCase(user_repo, membership_repo, refresh_token_repo, library_repo, token_service)
 
 
 def get_list_my_libraries_use_case(
@@ -255,9 +271,10 @@ def get_list_my_libraries_use_case(
 def get_select_library_context_use_case(
     user_repo: UserRepository = Depends(get_user_repository),
     membership_repo: MembershipRepository = Depends(get_membership_repository),
+    library_repo: LibraryRepository = Depends(get_library_repository),
     token_service: TokenService = Depends(get_token_service),
 ) -> SelectLibraryContextUseCase:
-    return SelectLibraryContextUseCase(user_repo, membership_repo, token_service)
+    return SelectLibraryContextUseCase(user_repo, membership_repo, library_repo, token_service)
 
 
 def get_accept_invitation_use_case(
@@ -285,6 +302,15 @@ def get_invite_member_use_case(
         user_repo, membership_repo, library_repo, reset_token_repo, email_sender, token_service, password_hasher,
         settings.invite_expire_minutes, settings.frontend_base_url,
     )
+
+
+def get_create_child_account_use_case(
+    user_repo: UserRepository = Depends(get_user_repository),
+    membership_repo: MembershipRepository = Depends(get_membership_repository),
+    library_repo: LibraryRepository = Depends(get_library_repository),
+    password_hasher: PasswordHasher = Depends(get_password_hasher),
+) -> CreateChildAccountUseCase:
+    return CreateChildAccountUseCase(user_repo, membership_repo, library_repo, password_hasher)
 
 
 def get_list_members_use_case(
@@ -451,7 +477,7 @@ def get_get_library_use_case(
 def get_update_library_use_case(
     library_repo: LibraryRepository = Depends(get_library_repository),
 ) -> UpdateLibraryUseCase:
-    return UpdateLibraryUseCase(library_repo)
+    return UpdateLibraryUseCase(library_repo, settings.ai_module_enabled)
 
 
 def get_confirm_library_deletion_use_case(
@@ -493,6 +519,8 @@ __all__ = [
     "require_library_context",
     "verify_internal_token",
     "require_role",
+    "require_child",
+    "require_parent",
     "get_token_service",
     "get_refresh_token_repository",
     "get_user_repository",
@@ -529,6 +557,7 @@ __all__ = [
     "get_decline_invitation_use_case",
     "get_get_member_use_case",
     "get_invite_member_use_case",
+    "get_create_child_account_use_case",
     "get_list_members_use_case",
     "get_list_membership_activity_use_case",
     "get_search_members_use_case",

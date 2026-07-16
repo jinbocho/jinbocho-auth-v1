@@ -16,6 +16,7 @@ class GetLibraryOutput:
     id: UUID
     name: str
     description: str | None = None
+    kids_mode_enabled: bool = False
 
 
 class GetLibraryUseCase:
@@ -30,4 +31,9 @@ class GetLibraryUseCase:
         if not library:
             raise EntityNotFoundError("Library not found")
 
-        return GetLibraryOutput(id=library.id, name=library.name, description=library.description)
+        return GetLibraryOutput(
+            id=library.id,
+            name=library.name,
+            description=library.description,
+            kids_mode_enabled=library.kids_mode_enabled,
+        )

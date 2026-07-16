@@ -5,7 +5,7 @@ from uuid import UUID
 from app.application.services import TokenService
 from app.domain.entities import MembershipStatus, UserRole
 from app.domain.exceptions import InactiveUserError, NotAMemberError
-from app.domain.repositories import MembershipRepository, UserRepository
+from app.domain.repositories import LibraryRepository, MembershipRepository, UserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +34,12 @@ class SelectLibraryContextUseCase:
         self,
         user_repo: UserRepository,
         membership_repo: MembershipRepository,
+        library_repo: LibraryRepository,
         token_service: TokenService,
     ):
         self._user_repo = user_repo
         self._membership_repo = membership_repo
+        self._library_repo = library_repo
         self._token_service = token_service
 
     async def execute(self, input: SelectLibraryContextInput) -> SelectLibraryContextOutput:
@@ -56,8 +58,11 @@ class SelectLibraryContextUseCase:
         user.last_selected_library_id = input.library_id
         await self._user_repo.save(user)
 
+        library = await self._library_repo.find_by_id(membership.library_id)
+        kids_mode_enabled = library.kids_mode_enabled if library else False
+
         access_token = self._token_service.create_access_token(
-            str(user.id), user.email, str(membership.library_id), membership.role.value
+            str(user.id), user.email, str(membership.library_id), membership.role.value, kids_mode_enabled
         )
         logger.info("User %s selected library %s", user.id, membership.library_id)
         return SelectLibraryContextOutput(access_token=access_token, library_id=membership.library_id, role=membership.role)

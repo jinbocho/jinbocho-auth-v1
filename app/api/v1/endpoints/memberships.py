@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.dependencies import (
     JWTPayload,
+    get_create_child_account_use_case,
     get_get_member_use_case,
     get_invite_member_use_case,
     get_list_members_use_case,
@@ -12,9 +13,12 @@ from app.api.dependencies import (
     get_search_members_use_case,
     get_update_membership_use_case,
     require_library_context,
+    require_parent,
     require_role,
 )
 from app.api.v1.schemas.context_schemas import (
+    ChildAccountResponse,
+    CreateChildRequest,
     InviteMemberRequest,
     MembershipActivityResponse,
     MemberProfileResponse,
@@ -22,6 +26,7 @@ from app.api.v1.schemas.context_schemas import (
     MemberSearchResultResponse,
     UpdateMembershipRequest,
 )
+from app.application.use_cases.children import CreateChildAccountInput, CreateChildAccountUseCase
 from app.application.use_cases.memberships import (
     GetMemberInput,
     GetMemberUseCase,
@@ -171,6 +176,39 @@ async def invite_member(
     return MemberResponse(
         membership_id=result.membership_id, user_id=result.user_id, email=result.email,
         full_name=request.full_name or result.email, role=result.role.value, status=result.status.value,
+    )
+
+
+@router.post(
+    "/{library_id}/members/children",
+    response_model=ChildAccountResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a self-service child account (kids mode only)",
+    description="Creates a real, immediately-usable email+password account for a child, scoped "
+    "to the CHILD role — no email is collected from the caller, a non-deliverable login "
+    "identifier is generated and returned instead. Recovery emails (if ever needed) go to the "
+    "creating parent's own email, not the child's. Requires kids mode enabled for this library "
+    "and admin or editor role."
+)
+async def create_child_account(
+    library_id: UUID,
+    request: CreateChildRequest,
+    payload: JWTPayload = Depends(require_parent),
+    use_case: CreateChildAccountUseCase = Depends(get_create_child_account_use_case),
+) -> ChildAccountResponse:
+    _require_same_library(payload, library_id)
+    result = await use_case.execute(
+        CreateChildAccountInput(
+            library_id=library_id,
+            requester_library_id=library_id,
+            created_by=UUID(payload["sub"]),
+            guardian_email=payload["email"],
+            full_name=request.full_name,
+            password=request.password,
+        )
+    )
+    return ChildAccountResponse(
+        user_id=result.user_id, membership_id=result.membership_id, full_name=result.full_name, email=result.email,
     )
 
 

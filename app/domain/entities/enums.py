@@ -5,6 +5,10 @@ class UserRole(str, Enum):
     ADMIN = "admin"
     EDITOR = "editor"
     VIEWER = "viewer"
+    # Self-service account for a child in a kids_mode_enabled library — never
+    # appears in any require_role(...) allowlist for ordinary endpoints, so it
+    # default-denies everything except the dedicated kids-mode surface.
+    CHILD = "child"
 
 
 class MembershipStatus(str, Enum):

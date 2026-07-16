@@ -18,6 +18,7 @@ class SQLAlchemyLibraryRepository(LibraryRepository):
             id=model.id,
             name=model.name,
             description=model.description,
+            kids_mode_enabled=model.kids_mode_enabled,
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
@@ -27,6 +28,7 @@ class SQLAlchemyLibraryRepository(LibraryRepository):
             id=library.id,
             name=library.name,
             description=library.description,
+            kids_mode_enabled=library.kids_mode_enabled,
             created_at=library.created_at,
             updated_at=library.updated_at,
         )
