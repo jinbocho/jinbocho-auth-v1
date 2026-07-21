@@ -64,6 +64,52 @@ async def test_admin_can_update_user_role(async_client, test_library_and_user):
 
 
 @pytest.mark.asyncio
+async def test_admin_can_set_and_clear_birth_year(async_client, test_library_and_user):
+    """KID-01: a parent must be able to add/correct a child's birth_year on
+    an existing account, not just at creation time."""
+    token = await _login(async_client, test_library_and_user["email"], test_library_and_user["password"])
+    invited = await _invite_user(async_client, token, f"birthyear-test-{uuid4().hex}@test.com", role="viewer")
+
+    set_response = await async_client.patch(
+        f"/v1/users/{invited['id']}",
+        json={"birth_year": 2015},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert set_response.status_code == 200
+    assert set_response.json()["birth_year"] == 2015
+
+    clear_response = await async_client.patch(
+        f"/v1/users/{invited['id']}",
+        json={"birth_year": None},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert clear_response.status_code == 200
+    assert clear_response.json()["birth_year"] is None
+
+
+@pytest.mark.asyncio
+async def test_self_profile_returns_birth_year(async_client, test_library_and_user):
+    """GetUserUseCase (GET /v1/users/me) must surface birth_year too, not
+    just the admin-facing update/list paths — MyReadingPage derives its own
+    age band from this exact endpoint, and a missing field here silently
+    made every child's own view fall back to the "unknown band" full
+    experience regardless of what birth_year was actually set to."""
+    token = await _login(async_client, test_library_and_user["email"], test_library_and_user["password"])
+    admin_id = test_library_and_user["user_id"]
+
+    set_response = await async_client.patch(
+        f"/v1/users/{admin_id}",
+        json={"birth_year": 2015},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert set_response.status_code == 200
+
+    me_response = await async_client.get("/v1/users/me", headers={"Authorization": f"Bearer {token}"})
+    assert me_response.status_code == 200
+    assert me_response.json()["birth_year"] == 2015
+
+
+@pytest.mark.asyncio
 async def test_non_admin_cannot_update_other_user(async_client, test_library_and_user, capsys):
     admin_token = await _login(async_client, test_library_and_user["email"], test_library_and_user["password"])
     viewer = await _invite_user(async_client, admin_token, f"viewer-{uuid4().hex}@test.com", role="viewer")

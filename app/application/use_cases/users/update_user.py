@@ -25,6 +25,11 @@ class UpdateUserInput:
     language: Language | None = None
     theme_name: ThemeName | None = None
     theme_mode: ThemeMode | None = None
+    # Same "None is a valid value" ambiguity as annual_reading_goal: a parent
+    # correcting a birth_year to null should be possible, distinct from not
+    # touching it at all.
+    birth_year: int | None = None
+    set_birth_year: bool = False
 
 
 @dataclass
@@ -41,6 +46,7 @@ class UpdateUserOutput:
     theme_mode: ThemeMode | None = None
     avatar_url: str | None = None
     password_set_at: datetime | None = None
+    birth_year: int | None = None
 
 
 class UpdateUserUseCase:
@@ -73,6 +79,8 @@ class UpdateUserUseCase:
             user.full_name = input.full_name
         if input.set_annual_reading_goal:
             user.annual_reading_goal = input.annual_reading_goal
+        if input.set_birth_year:
+            user.birth_year = input.birth_year
         if input.language is not None:
             user.language = input.language
         if input.theme_name is not None:
@@ -109,4 +117,5 @@ class UpdateUserUseCase:
             theme_mode=updated_user.theme_mode,
             avatar_url=updated_user.avatar_url,
             password_set_at=updated_user.password_set_at,
+            birth_year=updated_user.birth_year,
         )

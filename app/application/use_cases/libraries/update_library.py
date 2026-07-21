@@ -23,13 +23,13 @@ class UpdateLibraryOutput:
 
 
 class UpdateLibraryUseCase:
-    def __init__(self, library_repo: LibraryRepository, ai_module_enabled: bool) -> None:
+    def __init__(self, library_repo: LibraryRepository, kids_module_enabled: bool) -> None:
         self._library_repo = library_repo
-        # Kids Mode is a Pro-tier feature (child accounts + AI comprehension
-        # quizzes). No JWT/plan-based entitlement system exists yet, so until
-        # one does, this is gated on the "ai" module being enabled for the
-        # installation — Community edition never ships ai-service, Pro does.
-        self._ai_module_enabled = ai_module_enabled
+        # Kids Mode (child accounts, reading quizzes/journal/discussion) is
+        # its own independently-gated optional module — see settings.kids_module_enabled.
+        # It no longer requires the "ai" module; auto-generation of quiz/discussion
+        # content still separately requires "ai" (enforced in catalog-service).
+        self._kids_module_enabled = kids_module_enabled
 
     async def execute(self, input: UpdateLibraryInput) -> UpdateLibraryOutput:
         if input.library_id != input.requester_library_id:
@@ -44,8 +44,8 @@ class UpdateLibraryUseCase:
         if input.description is not None:
             library.description = input.description
         if input.kids_mode_enabled is not None:
-            if input.kids_mode_enabled and not self._ai_module_enabled:
-                raise ForbiddenError("Kids mode requires the AI module (Pro edition)")
+            if input.kids_mode_enabled and not self._kids_module_enabled:
+                raise ForbiddenError("Kids mode is not enabled for this installation")
             library.kids_mode_enabled = input.kids_mode_enabled
 
         updated_library = await self._library_repo.save(library)

@@ -7,11 +7,11 @@ from app.config import settings
 
 
 @pytest.fixture(autouse=True)
-def ai_module_enabled(monkeypatch):
-    """Kids mode is gated on the "ai" module being enabled (Pro-tier gate,
+def kids_module_enabled(monkeypatch):
+    """Kids mode is gated on the "kids" module being enabled (Pro-tier gate,
     see UpdateLibraryUseCase) — force it on for this whole file, which is
     about the kids-mode flow itself, not this particular business gate."""
-    monkeypatch.setattr(settings, "jinbocho_features", "catalog,auth,ai")
+    monkeypatch.setattr(settings, "jinbocho_features", "catalog,auth,kids")
 
 
 async def _login(async_client, email: str, password: str) -> str:
@@ -27,11 +27,10 @@ def _decode(token: str) -> dict:
 
 
 @pytest.mark.asyncio
-async def test_enabling_kids_mode_requires_ai_module(async_client, test_library_and_user, monkeypatch):
-    """Kids mode is a Pro-tier feature — until a real plan/entitlement system
-    exists, it's gated on the "ai" module being enabled for this installation
-    (Community edition never ships it)."""
-    monkeypatch.setattr(settings, "jinbocho_features", "catalog,auth")  # no "ai" — overrides the file-wide fixture
+async def test_enabling_kids_mode_requires_kids_module(async_client, test_library_and_user, monkeypatch):
+    """Kids mode is its own independently-gated optional module — the "ai"
+    module being enabled is not sufficient on its own to unlock it."""
+    monkeypatch.setattr(settings, "jinbocho_features", "catalog,auth,ai")  # "ai" but no "kids"
     admin_token = await _login(async_client, test_library_and_user["email"], test_library_and_user["password"])
     library_id = test_library_and_user["library_id"]
 
@@ -41,6 +40,23 @@ async def test_enabling_kids_mode_requires_ai_module(async_client, test_library_
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_enabling_kids_mode_succeeds_without_ai_module(async_client, test_library_and_user, monkeypatch):
+    """Kids mode must be enable-able even when the "ai" module is absent —
+    it no longer requires AI, only its own "kids" module flag."""
+    monkeypatch.setattr(settings, "jinbocho_features", "catalog,auth,kids")  # "kids" but no "ai"
+    admin_token = await _login(async_client, test_library_and_user["email"], test_library_and_user["password"])
+    library_id = test_library_and_user["library_id"]
+
+    response = await async_client.patch(
+        f"/v1/libraries/{library_id}",
+        json={"kids_mode_enabled": True},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200
+    assert response.json()["kids_mode_enabled"] is True
 
 
 @pytest.mark.asyncio
@@ -88,6 +104,25 @@ async def test_child_account_created_and_logs_in(async_client, test_library_and_
     assert claims["role"] == "child"
     assert claims["kids_mode_enabled"] is True
     assert claims["library_id"] == library_id
+
+
+@pytest.mark.asyncio
+async def test_access_token_carries_language_claim(async_client, test_library_and_user):
+    """catalog-service/ai-service read this claim to generate AI content
+    (quiz, discussion, incipit, tags) in the reader's own language instead
+    of the book's — see TokenService.create_access_token."""
+    admin_token = await _login(async_client, test_library_and_user["email"], test_library_and_user["password"])
+
+    update_response = await async_client.patch(
+        "/v1/users/me",
+        json={"language": "it"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert update_response.status_code == 200
+
+    fresh_token = await _login(async_client, test_library_and_user["email"], test_library_and_user["password"])
+    claims = _decode(fresh_token)
+    assert claims["language"] == "it"
 
 
 @pytest.mark.asyncio

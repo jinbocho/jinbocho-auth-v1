@@ -22,6 +22,7 @@ class MemberSummary:
     joined_at: datetime | None
     last_accessed_at: datetime | None
     avatar_url: str | None = None
+    birth_year: int | None = None
 
 
 @dataclass
@@ -54,6 +55,7 @@ class ListMembersUseCase:
                     joined_at=m.joined_at,
                     last_accessed_at=m.last_accessed_at,
                     avatar_url=user.avatar_url,
+                    birth_year=user.birth_year,
                 )
             )
         return ListMembersOutput(members=members)

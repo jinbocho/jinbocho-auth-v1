@@ -45,6 +45,10 @@ class User:
     # Server-set only (mirrors password_set_at/consent_at) — never accept a
     # client-supplied timestamp here; the tour endpoints set/clear it.
     tour_completed_at: datetime | None = None
+    # Year only, not full date of birth — GDPR data minimization. Drives the
+    # kids-mode age band (see features/kids/ageBand.ts on the frontend and
+    # QuizBookContext.extra_context on the AI quiz-difficulty path).
+    birth_year: int | None = None
     id: UUID = field(default_factory=uuid4)
     created_at: datetime = field(default_factory=_utcnow)
     updated_at: datetime = field(default_factory=_utcnow)

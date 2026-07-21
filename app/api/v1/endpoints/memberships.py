@@ -96,7 +96,7 @@ async def list_members(
         MemberResponse(
             membership_id=m.membership_id, user_id=m.user_id, email=m.email, full_name=m.full_name,
             role=m.role.value, status=m.status.value, joined_at=m.joined_at, last_accessed_at=m.last_accessed_at,
-            avatar_url=m.avatar_url,
+            avatar_url=m.avatar_url, birth_year=m.birth_year,
         )
         for m in result.members
     ]
@@ -145,6 +145,7 @@ async def get_member(
     return MemberProfileResponse(
         user_id=result.user_id, full_name=result.full_name, email=result.email,
         role=result.role.value, avatar_url=result.avatar_url, joined_at=result.joined_at,
+        birth_year=result.birth_year,
     )
 
 
@@ -205,6 +206,7 @@ async def create_child_account(
             guardian_email=payload["email"],
             full_name=request.full_name,
             password=request.password,
+            birth_year=request.birth_year,
         )
     )
     return ChildAccountResponse(

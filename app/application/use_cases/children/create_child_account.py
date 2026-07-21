@@ -36,6 +36,7 @@ class CreateChildAccountInput:
     guardian_email: str
     full_name: str
     password: str
+    birth_year: int | None = None
 
 
 @dataclass
@@ -83,6 +84,7 @@ class CreateChildAccountUseCase:
             guardian_email=input.guardian_email,
             password_set_at=now,
             last_selected_library_id=input.library_id,
+            birth_year=input.birth_year,
         )
         saved_user = await self._user_repo.save(user)
 

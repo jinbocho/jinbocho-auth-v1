@@ -76,7 +76,8 @@ class RefreshTokenUseCase:
             kids_mode_enabled = chosen_library.kids_mode_enabled if chosen_library else False
 
         access_token = self._token_service.create_access_token(
-            str(user.id), user.email, library_id, role, kids_mode_enabled
+            str(user.id), user.email, library_id, role, kids_mode_enabled, user.birth_year,
+            user.language.value if user.language else None,
         )
         new_refresh_token = self._token_service.create_refresh_token()
 

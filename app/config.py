@@ -36,10 +36,11 @@ class Settings(BaseSettings):
     internal_service_token: str = ""
 
     # Comma-separated list of modules enabled for this installation — must match
-    # api-gateway's/catalog-service's JINBOCHO_FEATURES. Kids Mode (child
-    # accounts, AI comprehension quizzes) is a Pro-tier feature; until a proper
-    # JWT/plan-based entitlement exists, we gate Library.kids_mode_enabled on
-    # the "ai" module being enabled, since Community edition never ships it.
+    # api-gateway's/catalog-service's JINBOCHO_FEATURES. "ai" and "kids" are
+    # independent optional modules; Kids Mode (child accounts, reading
+    # quizzes/journal/discussion) is gated on "kids", not on "ai". Auto-quiz
+    # and auto-discussion generation additionally require "ai" (see catalog-
+    # service's AiQuizClient/AiDiscussionClient).
     jinbocho_features: str = "catalog,auth"
 
     # Observability (ADR-012) — off by default so a service run without the
@@ -59,8 +60,8 @@ class Settings(BaseSettings):
     )
 
     @property
-    def ai_module_enabled(self) -> bool:
-        return "ai" in [f.strip() for f in self.jinbocho_features.split(",")]
+    def kids_module_enabled(self) -> bool:
+        return "kids" in [f.strip() for f in self.jinbocho_features.split(",")]
 
 
 settings = Settings()  # type: ignore[call-arg]  # required fields come from .env / environment

@@ -22,6 +22,8 @@ class TokenService:
         library_id: str | None,
         role: str | None,
         kids_mode_enabled: bool = False,
+        birth_year: int | None = None,
+        language: str | None = None,
     ) -> str:
         """Create a signed JWT access token.
 
@@ -36,6 +38,16 @@ class TokenService:
         catalog-service's kids-mode use cases re-check it on every request
         (rather than trusting a stale claim indefinitely), so staleness here
         is bounded by the access token's short expiry.
+
+        birth_year (omitted when unset) lets catalog-service derive the
+        reader's age band without a cross-service call — see KID-01 in
+        jinbocho-docs/backlog/BACKLOG_KIDS_READING_EDUCATION.md. Year only,
+        not full date of birth.
+
+        language (omitted when unset) is the user's own UI language
+        preference — catalog-service/ai-service read it to generate AI
+        content (quiz, discussion questions, incipit, tags) in the reader's
+        own language instead of the book's bibliographic language.
         """
         now = self.utcnow()
         payload = {
@@ -51,6 +63,10 @@ class TokenService:
             payload["library_id"] = library_id
         if role is not None:
             payload["role"] = role
+        if birth_year is not None:
+            payload["birth_year"] = birth_year
+        if language is not None:
+            payload["language"] = language
         return jwt.encode(payload, self._settings.jwt_secret_key, algorithm=self._settings.jwt_algorithm)
 
     def create_refresh_token(self) -> str:

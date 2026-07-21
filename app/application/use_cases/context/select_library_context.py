@@ -62,7 +62,9 @@ class SelectLibraryContextUseCase:
         kids_mode_enabled = library.kids_mode_enabled if library else False
 
         access_token = self._token_service.create_access_token(
-            str(user.id), user.email, str(membership.library_id), membership.role.value, kids_mode_enabled
+            str(user.id), user.email, str(membership.library_id), membership.role.value,
+            kids_mode_enabled, user.birth_year,
+            user.language.value if user.language else None,
         )
         logger.info("User %s selected library %s", user.id, membership.library_id)
         return SelectLibraryContextOutput(access_token=access_token, library_id=membership.library_id, role=membership.role)

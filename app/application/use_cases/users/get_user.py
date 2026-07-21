@@ -31,6 +31,7 @@ class GetUserOutput:
     avatar_url: str | None = None
     password_set_at: datetime | None = None
     tour_completed_at: datetime | None = None
+    birth_year: int | None = None
 
 
 class GetUserUseCase:
@@ -68,4 +69,5 @@ class GetUserUseCase:
             avatar_url=user.avatar_url,
             password_set_at=user.password_set_at,
             tour_completed_at=user.tour_completed_at,
+            birth_year=user.birth_year,
         )

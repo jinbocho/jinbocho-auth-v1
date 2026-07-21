@@ -117,8 +117,9 @@ async def create_user(
 async def list_users(
     payload: JWTPayload = Depends(require_library_context),
     user_repo: UserRepository = Depends(get_user_repository),
+    membership_repo: MembershipRepository = Depends(get_membership_repository),
 ) -> list[User]:
-    use_case = ListUsersUseCase(user_repo)
+    use_case = ListUsersUseCase(user_repo, membership_repo)
     result = await use_case.execute(ListUsersInput(library_id=UUID(payload["library_id"])))
     return result.users
 
@@ -272,6 +273,8 @@ async def update_user(
             language=request.language,
             theme_name=request.theme_name,
             theme_mode=request.theme_mode,
+            birth_year=request.birth_year,
+            set_birth_year="birth_year" in request.model_fields_set,
         )
     )
     return UserResponse.model_validate(result)

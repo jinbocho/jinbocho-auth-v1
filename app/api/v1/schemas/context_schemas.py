@@ -42,6 +42,10 @@ class CreateChildRequest(BaseModel):
 
     full_name: str = Field(min_length=1, max_length=255, description="Child's display name")
     password: str = Field(min_length=8, description="Password the child will log in with (min 8 chars)")
+    birth_year: int | None = Field(
+        default=None, ge=1900, le=2100,
+        description="Birth year only (not full date of birth) — drives the kids-mode age band",
+    )
 
 
 class ChildAccountResponse(BaseModel):
@@ -65,6 +69,7 @@ class MemberResponse(BaseModel):
     joined_at: datetime | None = None
     last_accessed_at: datetime | None = None
     avatar_url: str | None = None
+    birth_year: int | None = None
 
 
 class UpdateMembershipRequest(BaseModel):
@@ -123,3 +128,4 @@ class MemberProfileResponse(BaseModel):
     role: str
     avatar_url: str | None = None
     joined_at: datetime | None = None
+    birth_year: int | None = None

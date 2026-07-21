@@ -27,6 +27,9 @@ class UserResponse(BaseModel):
     tour_completed_at: datetime | None = Field(
         default=None, description="When the user completed the onboarding tour; null means it hasn't been shown yet"
     )
+    birth_year: int | None = Field(
+        default=None, description="Birth year only (not full date of birth) — drives the kids-mode age band"
+    )
 
 
 class UserCreate(BaseModel):
@@ -56,6 +59,9 @@ class UserUpdate(BaseModel):
     language: Language | None = Field(default=None, description="UI language preference")
     theme_name: ThemeName | None = Field(default=None, description="UI theme")
     theme_mode: ThemeMode | None = Field(default=None, description="UI colour mode")
+    birth_year: int | None = Field(
+        default=None, description="Birth year only (not full date of birth) — drives the kids-mode age band"
+    )
 
     model_config = ConfigDict(
         json_schema_extra={

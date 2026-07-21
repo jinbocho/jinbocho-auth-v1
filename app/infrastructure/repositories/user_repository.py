@@ -34,6 +34,7 @@ class SQLAlchemyUserRepository(UserRepository):
             last_selected_library_id=model.last_selected_library_id,
             tour_completed_at=model.tour_completed_at,
             guardian_email=model.guardian_email,
+            birth_year=model.birth_year,
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
@@ -59,6 +60,7 @@ class SQLAlchemyUserRepository(UserRepository):
             last_selected_library_id=user.last_selected_library_id,
             tour_completed_at=user.tour_completed_at,
             guardian_email=user.guardian_email,
+            birth_year=user.birth_year,
             created_at=user.created_at,
             updated_at=user.updated_at,
         )

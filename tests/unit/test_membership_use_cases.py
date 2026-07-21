@@ -28,6 +28,7 @@ from app.application.use_cases.memberships import (
     UpdateMembershipInput,
     UpdateMembershipUseCase,
 )
+from app.application.use_cases.users import ListUsersInput, ListUsersUseCase
 from app.domain.entities import Library, LibraryMembership, MembershipStatus, User, UserRole
 from app.domain.exceptions import EntityNotFoundError, ForbiddenError, LastAdminError, NotAMemberError
 
@@ -505,3 +506,24 @@ async def test_membership_activity_respects_limit(mock_membership_repo, mock_use
     result = await use_case.execute(ListMembershipActivityInput(library_id=library_id, limit=2))
 
     assert len(result.items) == 2
+
+
+@pytest.mark.asyncio
+async def test_list_users_excludes_removed_member(mock_membership_repo, mock_user_repo, password_hasher):
+    """Regression: the owner/reader pickers call this (non-admin-gated,
+    unlike ListMembersUseCase) — a member removed via RemoveMembershipUseCase
+    must stop showing up here too, not just on the admin Users page."""
+    library_id = uuid4()
+    staying = await _user(mock_user_repo, password_hasher, email="staying@example.com")
+    removed = await _user(mock_user_repo, password_hasher, email="removed@example.com")
+    await mock_membership_repo.save(
+        LibraryMembership(user_id=staying.id, library_id=library_id, role=UserRole.VIEWER, status=MembershipStatus.ACTIVE)
+    )
+    await mock_membership_repo.save(
+        LibraryMembership(user_id=removed.id, library_id=library_id, role=UserRole.VIEWER, status=MembershipStatus.REVOKED)
+    )
+
+    use_case = ListUsersUseCase(mock_user_repo, mock_membership_repo)
+    result = await use_case.execute(ListUsersInput(library_id=library_id))
+
+    assert {u.id for u in result.users} == {staying.id}

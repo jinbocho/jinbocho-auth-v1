@@ -477,7 +477,7 @@ def get_get_library_use_case(
 def get_update_library_use_case(
     library_repo: LibraryRepository = Depends(get_library_repository),
 ) -> UpdateLibraryUseCase:
-    return UpdateLibraryUseCase(library_repo, settings.ai_module_enabled)
+    return UpdateLibraryUseCase(library_repo, settings.kids_module_enabled)
 
 
 def get_confirm_library_deletion_use_case(

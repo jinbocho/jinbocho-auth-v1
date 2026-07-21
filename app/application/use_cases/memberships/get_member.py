@@ -21,6 +21,7 @@ class GetMemberOutput:
     role: UserRole
     avatar_url: str | None
     joined_at: datetime | None
+    birth_year: int | None
 
 
 class GetMemberUseCase:
@@ -46,4 +47,5 @@ class GetMemberUseCase:
         return GetMemberOutput(
             user_id=user.id, full_name=user.full_name, email=user.email,
             role=membership.role, avatar_url=user.avatar_url, joined_at=membership.joined_at,
+            birth_year=user.birth_year,
         )
