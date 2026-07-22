@@ -55,7 +55,7 @@ class ConfirmEmailChangeUseCase:
         # Re-check uniqueness: another account could have claimed this
         # address between the request and this confirmation.
         existing = await self._user_repo.find_by_email(token.new_email)
-        if existing and existing.id != user.id:
+        if existing and existing.id != user.id and existing.is_active:
             raise EmailAlreadyRegisteredError("Email already registered")
 
         # Atomic claim (single conditional UPDATE, see

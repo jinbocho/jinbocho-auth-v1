@@ -56,7 +56,7 @@ class RequestEmailChangeUseCase:
             return
 
         existing = await self._user_repo.find_by_email(new_email)
-        if existing and existing.id != user.id:
+        if existing and existing.id != user.id and existing.is_active:
             raise EmailAlreadyRegisteredError("Email already registered")
 
         now = datetime.now(timezone.utc)

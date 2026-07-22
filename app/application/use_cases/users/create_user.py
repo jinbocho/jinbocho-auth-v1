@@ -68,7 +68,7 @@ class CreateUserUseCase:
         # distinct accounts for the same real mailbox (confirmed via pentest).
         email = input.email.strip().lower()
         existing = await self._user_repo.find_by_email(email)
-        if existing:
+        if existing and existing.is_active:
             raise EmailAlreadyRegisteredError("Email already registered")
 
         # No password is chosen for the invitee: a random, never-disclosed
