@@ -18,6 +18,15 @@ class UserRepository(ABC):
     async def find_by_library(self, library_id: UUID) -> list[User]: ...
 
     @abstractmethod
+    async def lock_active_admins(self, library_id: UUID) -> list[User]:
+        """Like find_by_library but takes a row lock (SELECT ... FOR UPDATE).
+        Used only for the "don't delete the library's last active admin"
+        check in DeleteUserUseCase — see MembershipRepository.lock_active_admins
+        for why the plain read-then-write version lets two concurrent
+        requests both delete a different one of exactly two admins."""
+        ...
+
+    @abstractmethod
     async def search_active_excluding_library(
         self, query: str, exclude_library_id: UUID, limit: int
     ) -> list[User]:

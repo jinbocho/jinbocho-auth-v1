@@ -25,7 +25,7 @@ class DeleteUserUseCase:
             raise EntityNotFoundError("User not found")
 
         if user.role == UserRole.ADMIN and user.is_active:
-            library = await self._user_repo.find_by_library(user.library_id)
+            library = await self._user_repo.lock_active_admins(user.library_id)
             other_active_admins = any(
                 u.id != user.id and u.role == UserRole.ADMIN and u.is_active for u in library
             )

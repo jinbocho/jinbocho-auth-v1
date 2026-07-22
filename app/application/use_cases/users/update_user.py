@@ -70,7 +70,7 @@ class UpdateUserUseCase:
         demoting_admin = input.role is not None and input.role != UserRole.ADMIN
         deactivating = input.is_active is False
         if membership.role == UserRole.ADMIN and (demoting_admin or deactivating):
-            siblings = await self._membership_repo.find_by_library(input.requester_library_id, [MembershipStatus.ACTIVE])
+            siblings = await self._membership_repo.lock_active_admins(input.requester_library_id)
             other_active_admins = any(s.user_id != user.id and s.role == UserRole.ADMIN for s in siblings)
             if not other_active_admins:
                 raise LastAdminError("Cannot remove the library's last active admin")

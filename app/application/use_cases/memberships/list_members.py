@@ -3,12 +3,14 @@ from datetime import datetime
 from uuid import UUID
 
 from app.domain.entities import MembershipStatus, UserRole
+from app.domain.exceptions import ForbiddenError
 from app.domain.repositories import MembershipRepository, UserRepository
 
 
 @dataclass
 class ListMembersInput:
     library_id: UUID
+    requester_library_id: UUID
 
 
 @dataclass
@@ -36,6 +38,9 @@ class ListMembersUseCase:
         self._user_repo = user_repo
 
     async def execute(self, input: ListMembersInput) -> ListMembersOutput:
+        if input.library_id != input.requester_library_id:
+            raise ForbiddenError("Cannot list another library's members")
+
         memberships = await self._membership_repo.find_by_library(
             input.library_id, [MembershipStatus.ACTIVE, MembershipStatus.INVITED, MembershipStatus.SUSPENDED]
         )

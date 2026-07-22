@@ -45,13 +45,14 @@ class SQLAlchemyRefreshTokenRepository(RefreshTokenRepository):
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None
 
-    async def revoke(self, token_hash: str) -> None:
-        await self._session.execute(
+    async def revoke(self, token_hash: str) -> bool:
+        result = await self._session.execute(
             update(RefreshTokenModel)
-            .where(RefreshTokenModel.token_hash == token_hash)
+            .where(RefreshTokenModel.token_hash == token_hash, RefreshTokenModel.revoked_at.is_(None))
             .values(revoked_at=datetime.now(timezone.utc))
         )
         await self._session.flush()
+        return result.rowcount > 0
 
     async def revoke_all_for_users(self, user_ids: list[UUID]) -> int:
         if not user_ids:

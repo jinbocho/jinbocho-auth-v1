@@ -41,7 +41,10 @@ from app.application.use_cases.users import (
     ConfirmEmailChangeUseCase,
     CreateUserUseCase,
     DeleteAvatarUseCase,
+    ExportLibraryDataUseCase,
+    GetUserUseCase,
     ImportUsersUseCase,
+    ListUsersUseCase,
     RequestEmailChangeUseCase,
     ResendInviteUseCase,
     SearchUsersUseCase,
@@ -89,7 +92,13 @@ class JWTPayload(TypedDict):
     exp: int
 
 
-security = HTTPBearer()
+# auto_error=False: fastapi>=0.116/starlette>=1.0 changed HTTPBearer's own
+# missing-credentials response from 403 to 401 (see get_current_user_payload
+# below) — the app's established contract, tested and relied on by the FE's
+# 401-triggers-refresh logic, is 403 for "no credentials at all" vs 401 for
+# "credentials present but invalid/expired". Handling it explicitly here
+# keeps that contract stable regardless of what the library defaults to.
+security = HTTPBearer(auto_error=False)
 _password_hasher = BcryptPasswordHasher()
 _token_service = TokenService(settings)
 
@@ -163,9 +172,11 @@ def get_email_sender() -> EmailService:
 # ---------------------------------------------------------------------------
 
 async def get_current_user_payload(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     user_repo: UserRepository = Depends(get_user_repository),
 ) -> JWTPayload:
+    if credentials is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authenticated")
     try:
         payload = jwt.decode(
             credentials.credentials,
@@ -421,6 +432,27 @@ def get_update_user_use_case(
     return UpdateUserUseCase(user_repo, membership_repo)
 
 
+def get_get_user_use_case(
+    user_repo: UserRepository = Depends(get_user_repository),
+    membership_repo: MembershipRepository = Depends(get_membership_repository),
+) -> GetUserUseCase:
+    return GetUserUseCase(user_repo, membership_repo)
+
+
+def get_list_users_use_case(
+    user_repo: UserRepository = Depends(get_user_repository),
+    membership_repo: MembershipRepository = Depends(get_membership_repository),
+) -> ListUsersUseCase:
+    return ListUsersUseCase(user_repo, membership_repo)
+
+
+def get_export_library_data_use_case(
+    library_repo: LibraryRepository = Depends(get_library_repository),
+    user_repo: UserRepository = Depends(get_user_repository),
+) -> ExportLibraryDataUseCase:
+    return ExportLibraryDataUseCase(library_repo, user_repo)
+
+
 def get_update_tour_status_use_case(
     user_repo: UserRepository = Depends(get_user_repository),
     membership_repo: MembershipRepository = Depends(get_membership_repository),
@@ -538,6 +570,9 @@ __all__ = [
     "get_reset_password_use_case",
     "get_create_user_use_case",
     "get_update_user_use_case",
+    "get_get_user_use_case",
+    "get_list_users_use_case",
+    "get_export_library_data_use_case",
     "get_update_tour_status_use_case",
     "get_request_email_change_use_case",
     "get_confirm_email_change_use_case",

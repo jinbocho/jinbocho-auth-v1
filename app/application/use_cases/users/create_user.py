@@ -63,7 +63,11 @@ class CreateUserUseCase:
         self._frontend_base_url = frontend_base_url
 
     async def execute(self, input: CreateUserInput) -> CreateUserOutput:
-        existing = await self._user_repo.find_by_email(input.email)
+        # Normalized once and reused for both the dedup check and storage —
+        # otherwise "user@x.com" and "User@x.com" pass the duplicate check as
+        # distinct accounts for the same real mailbox (confirmed via pentest).
+        email = input.email.strip().lower()
+        existing = await self._user_repo.find_by_email(email)
         if existing:
             raise EmailAlreadyRegisteredError("Email already registered")
 
@@ -72,7 +76,7 @@ class CreateUserUseCase:
         # via the invite link) instead of an admin-picked password.
         user = User(
             library_id=input.library_id,
-            email=input.email,
+            email=email,
             password_hash=self._password_hasher.hash(secrets.token_urlsafe(32)),
             full_name=input.full_name,
             role=UserRole(input.role),

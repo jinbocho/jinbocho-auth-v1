@@ -47,13 +47,14 @@ class SQLAlchemyPasswordResetTokenRepository(PasswordResetTokenRepository):
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None
 
-    async def mark_used(self, token_id: UUID, used_at: datetime) -> None:
-        await self._session.execute(
+    async def mark_used(self, token_id: UUID, used_at: datetime) -> bool:
+        result = await self._session.execute(
             update(PasswordResetTokenModel)
-            .where(PasswordResetTokenModel.id == token_id)
+            .where(PasswordResetTokenModel.id == token_id, PasswordResetTokenModel.used_at.is_(None))
             .values(used_at=used_at)
         )
         await self._session.flush()
+        return result.rowcount > 0
 
     async def cleanup_expired(self) -> int:
         now = datetime.now(timezone.utc)

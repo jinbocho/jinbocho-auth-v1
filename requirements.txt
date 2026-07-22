@@ -1,4 +1,4 @@
-fastapi==0.115.5
+fastapi==0.139.2
 uvicorn[standard]==0.32.1
 sqlalchemy==2.0.36
 alembic==1.14.0
@@ -12,15 +12,12 @@ httpx==0.28.1
 slowapi>=0.1.9
 jinja2==3.1.6
 apscheduler>=3.10,<4
-Pillow>=10.0,<12
+Pillow>=12.1.1,<13
 python-multipart>=0.0.9
 
 # Observability (ADR-012) — traces + /metrics exported to a local Grafana
 # Alloy collector, which forwards to Grafana Cloud. Inert unless OTEL_ENABLED=true.
-# Capped at <8: prometheus-fastapi-instrumentator 8.x requires starlette>=1.0,
-# which conflicts with fastapi==0.115.5 (needs starlette<0.42). 7.1.0 uses the
-# same Instrumentator().instrument(app).expose(...) API used in app/core/telemetry.py.
-prometheus-fastapi-instrumentator>=7.0,<8
+prometheus-fastapi-instrumentator>=8.0,<9
 opentelemetry-api>=1.29,<2
 opentelemetry-sdk>=1.29,<2
 opentelemetry-exporter-otlp-proto-http>=1.29,<2

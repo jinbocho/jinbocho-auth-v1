@@ -13,7 +13,11 @@ class EmailChangeTokenRepository(ABC):
     async def find_by_token_hash(self, token_hash: str) -> EmailChangeToken | None: ...
 
     @abstractmethod
-    async def mark_used(self, token_id: UUID, used_at: datetime) -> None: ...
+    async def mark_used(self, token_id: UUID, used_at: datetime) -> bool:
+        """Atomically mark used iff not already used, and report whether this
+        call was the one that did it — see PasswordResetTokenRepository.mark_used
+        for why a plain read-then-write is unsafe under concurrency."""
+        ...
 
     @abstractmethod
     async def invalidate_pending(self, user_id: UUID, used_at: datetime) -> None:

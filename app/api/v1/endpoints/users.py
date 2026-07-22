@@ -7,16 +7,16 @@ from app.api.dependencies import (
     get_create_user_use_case,
     get_delete_avatar_use_case,
     get_delete_user_use_case,
-    get_library_repository,
+    get_export_library_data_use_case,
+    get_get_user_use_case,
     get_import_users_use_case,
-    get_membership_repository,
+    get_list_users_use_case,
     get_request_email_change_use_case,
     get_resend_invite_use_case,
     get_search_users_use_case,
     get_update_tour_status_use_case,
     get_update_user_use_case,
     get_upload_avatar_use_case,
-    get_user_repository,
     require_library_context,
     require_role,
 )
@@ -59,7 +59,6 @@ from app.application.use_cases.users import (
     UploadAvatarUseCase,
 )
 from app.domain.entities import User
-from app.domain.repositories import LibraryRepository, MembershipRepository, UserRepository
 from app.limiter import limiter
 
 router = APIRouter()
@@ -73,10 +72,8 @@ router = APIRouter()
 )
 async def get_me(
     payload: JWTPayload = Depends(require_library_context),
-    user_repo: UserRepository = Depends(get_user_repository),
-    membership_repo: MembershipRepository = Depends(get_membership_repository),
+    use_case: GetUserUseCase = Depends(get_get_user_use_case),
 ) -> UserResponse:
-    use_case = GetUserUseCase(user_repo, membership_repo)
     result = await use_case.execute(
         GetUserInput(user_id=UUID(payload["sub"]), requester_library_id=UUID(payload["library_id"]))
     )
@@ -116,10 +113,8 @@ async def create_user(
 )
 async def list_users(
     payload: JWTPayload = Depends(require_library_context),
-    user_repo: UserRepository = Depends(get_user_repository),
-    membership_repo: MembershipRepository = Depends(get_membership_repository),
+    use_case: ListUsersUseCase = Depends(get_list_users_use_case),
 ) -> list[User]:
-    use_case = ListUsersUseCase(user_repo, membership_repo)
     result = await use_case.execute(ListUsersInput(library_id=UUID(payload["library_id"])))
     return result.users
 
@@ -308,10 +303,8 @@ async def resend_invite(
 )
 async def export_library_data(
     payload: JWTPayload = Depends(require_role("admin")),
-    library_repo: LibraryRepository = Depends(get_library_repository),
-    user_repo: UserRepository = Depends(get_user_repository),
+    use_case: ExportLibraryDataUseCase = Depends(get_export_library_data_use_case),
 ) -> LibraryDataExportResponse:
-    use_case = ExportLibraryDataUseCase(library_repo, user_repo)
     result = await use_case.execute(ExportLibraryDataInput(library_id=UUID(payload["library_id"])))
     return LibraryDataExportResponse(
         library=LibraryExportItem(
@@ -396,8 +389,7 @@ async def upload_avatar(
     file: UploadFile = File(...),
     payload: JWTPayload = Depends(require_library_context),
     use_case: UploadAvatarUseCase = Depends(get_upload_avatar_use_case),
-    user_repo: UserRepository = Depends(get_user_repository),
-    membership_repo: MembershipRepository = Depends(get_membership_repository),
+    get_user_use_case: GetUserUseCase = Depends(get_get_user_use_case),
 ) -> UserResponse:
     image_bytes = await file.read()
     await use_case.execute(
@@ -408,7 +400,7 @@ async def upload_avatar(
             content_type=file.content_type or "",
         )
     )
-    result = await GetUserUseCase(user_repo, membership_repo).execute(
+    result = await get_user_use_case.execute(
         GetUserInput(user_id=UUID(payload["sub"]), requester_library_id=UUID(payload["library_id"]))
     )
     return UserResponse.model_validate(result)

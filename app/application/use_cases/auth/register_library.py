@@ -6,6 +6,7 @@ from uuid import UUID
 
 from app.application.ports import EmailService
 from app.domain.entities import Library, LibraryMembership, MembershipStatus, User, UserRole
+from app.domain.exceptions import ValidationError
 from app.domain.repositories import LibraryRepository, MembershipRepository, UserRepository
 from app.domain.services import PasswordHasher
 
@@ -50,7 +51,7 @@ class RegisterLibraryUseCase:
 
     async def execute(self, input: RegisterLibraryInput) -> RegisterLibraryOutput:
         if not input.accepted_privacy_version.strip() or not input.accepted_terms_version.strip():
-            raise ValueError("Privacy policy and terms of service must be accepted to register")
+            raise ValidationError("Privacy policy and terms of service must be accepted to register")
 
         library = Library(name=input.library_name)
         library = await self._library_repo.save(library)
@@ -58,7 +59,13 @@ class RegisterLibraryUseCase:
         now = datetime.now(timezone.utc)
         user = User(
             library_id=library.id,
-            email=input.admin_email,
+            # Normalized to lowercase: without this, "user@x.com" and
+            # "User@x.com" pass the DB's case-sensitive unique constraint as
+            # two distinct accounts for the same real mailbox — confirmed via
+            # pentest — breaking every "is this email already registered"
+            # check elsewhere (invites, dedup) that assumes one account per
+            # email.
+            email=input.admin_email.strip().lower(),
             password_hash=self._password_hasher.hash(input.admin_password),
             full_name=input.admin_full_name,
             role=UserRole.ADMIN,

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies import (
     JWTPayload,
@@ -48,11 +48,6 @@ from app.domain.entities import MembershipStatus, UserRole
 router = APIRouter()
 
 
-def _require_same_library(payload: JWTPayload, library_id: UUID) -> None:
-    if UUID(payload["library_id"]) != library_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot manage another library's members")
-
-
 @router.get(
     "/{library_id}/members/search",
     response_model=list[MemberSearchResultResponse],
@@ -68,8 +63,14 @@ async def search_members(
     payload: JWTPayload = Depends(require_library_context),
     use_case: SearchMembersUseCase = Depends(get_search_members_use_case),
 ) -> list[MemberSearchResultResponse]:
-    _require_same_library(payload, library_id)
-    result = await use_case.execute(SearchMembersInput(library_id=library_id, query=q, limit=min(limit, 10)))
+    result = await use_case.execute(
+        SearchMembersInput(
+            library_id=library_id,
+            requester_library_id=UUID(payload["library_id"]),
+            query=q,
+            limit=min(limit, 10),
+        )
+    )
     return [
         MemberSearchResultResponse(
             user_id=r.user_id, full_name=r.full_name, email=r.email, role=r.role.value, avatar_url=r.avatar_url,
@@ -90,8 +91,9 @@ async def list_members(
     payload: JWTPayload = Depends(require_role("admin")),
     use_case: ListMembersUseCase = Depends(get_list_members_use_case),
 ) -> list[MemberResponse]:
-    _require_same_library(payload, library_id)
-    result = await use_case.execute(ListMembersInput(library_id=library_id))
+    result = await use_case.execute(
+        ListMembersInput(library_id=library_id, requester_library_id=UUID(payload["library_id"]))
+    )
     return [
         MemberResponse(
             membership_id=m.membership_id, user_id=m.user_id, email=m.email, full_name=m.full_name,
@@ -116,8 +118,13 @@ async def get_membership_activity(
     payload: JWTPayload = Depends(require_library_context),
     use_case: ListMembershipActivityUseCase = Depends(get_list_membership_activity_use_case),
 ) -> list[MembershipActivityResponse]:
-    _require_same_library(payload, library_id)
-    result = await use_case.execute(ListMembershipActivityInput(library_id=library_id, limit=min(limit, 50)))
+    result = await use_case.execute(
+        ListMembershipActivityInput(
+            library_id=library_id,
+            requester_library_id=UUID(payload["library_id"]),
+            limit=min(limit, 50),
+        )
+    )
     return [
         MembershipActivityResponse(
             user_id=i.user_id, full_name=i.full_name, avatar_url=i.avatar_url,
@@ -140,8 +147,11 @@ async def get_member(
     payload: JWTPayload = Depends(require_library_context),
     use_case: GetMemberUseCase = Depends(get_get_member_use_case),
 ) -> MemberProfileResponse:
-    _require_same_library(payload, library_id)
-    result = await use_case.execute(GetMemberInput(library_id=library_id, user_id=user_id))
+    result = await use_case.execute(
+        GetMemberInput(
+            library_id=library_id, requester_library_id=UUID(payload["library_id"]), user_id=user_id
+        )
+    )
     return MemberProfileResponse(
         user_id=result.user_id, full_name=result.full_name, email=result.email,
         role=result.role.value, avatar_url=result.avatar_url, joined_at=result.joined_at,
@@ -164,10 +174,10 @@ async def invite_member(
     payload: JWTPayload = Depends(require_role("admin")),
     use_case: InviteMemberUseCase = Depends(get_invite_member_use_case),
 ) -> MemberResponse:
-    _require_same_library(payload, library_id)
     result = await use_case.execute(
         InviteMemberInput(
             library_id=library_id,
+            requester_library_id=UUID(payload["library_id"]),
             invited_by=UUID(payload["sub"]),
             email=request.email,
             full_name=request.full_name,
@@ -197,11 +207,10 @@ async def create_child_account(
     payload: JWTPayload = Depends(require_parent),
     use_case: CreateChildAccountUseCase = Depends(get_create_child_account_use_case),
 ) -> ChildAccountResponse:
-    _require_same_library(payload, library_id)
     result = await use_case.execute(
         CreateChildAccountInput(
             library_id=library_id,
-            requester_library_id=library_id,
+            requester_library_id=UUID(payload["library_id"]),
             created_by=UUID(payload["sub"]),
             guardian_email=payload["email"],
             full_name=request.full_name,
@@ -227,10 +236,10 @@ async def update_membership(
     payload: JWTPayload = Depends(require_role("admin")),
     use_case: UpdateMembershipUseCase = Depends(get_update_membership_use_case),
 ) -> None:
-    _require_same_library(payload, library_id)
     await use_case.execute(
         UpdateMembershipInput(
             library_id=library_id,
+            requester_library_id=UUID(payload["library_id"]),
             target_user_id=user_id,
             role=UserRole(request.role) if request.role else None,
             status=MembershipStatus(request.status) if request.status else None,
@@ -251,5 +260,8 @@ async def remove_member(
     payload: JWTPayload = Depends(require_role("admin")),
     use_case: RemoveMembershipUseCase = Depends(get_remove_membership_use_case),
 ) -> None:
-    _require_same_library(payload, library_id)
-    await use_case.execute(RemoveMembershipInput(library_id=library_id, target_user_id=user_id))
+    await use_case.execute(
+        RemoveMembershipInput(
+            library_id=library_id, requester_library_id=UUID(payload["library_id"]), target_user_id=user_id
+        )
+    )

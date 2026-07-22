@@ -47,10 +47,15 @@ class RequestEmailChangeUseCase:
         if not user:
             raise EntityNotFoundError("User not found")
 
-        if input.new_email == user.email:
+        # Normalized once and reused for the dedup check, stored token, and
+        # verification email — otherwise "user@x.com" and "User@x.com" pass
+        # the duplicate check as distinct accounts for the same real mailbox
+        # (confirmed via pentest).
+        new_email = input.new_email.strip().lower()
+        if new_email == user.email:
             return
 
-        existing = await self._user_repo.find_by_email(input.new_email)
+        existing = await self._user_repo.find_by_email(new_email)
         if existing and existing.id != user.id:
             raise EmailAlreadyRegisteredError("Email already registered")
 
@@ -62,7 +67,7 @@ class RequestEmailChangeUseCase:
         await self._email_change_token_repo.save(
             EmailChangeToken(
                 user_id=user.id,
-                new_email=input.new_email,
+                new_email=new_email,
                 token_hash=token_hash,
                 expires_at=now + timedelta(minutes=self._expire_minutes),
             )
@@ -71,7 +76,7 @@ class RequestEmailChangeUseCase:
         link = f"{self._frontend_base_url}/confirm-email-change?token={raw_token}"
         await asyncio.to_thread(
             self._email_sender.send_email_change_verification,
-            input.new_email, link,
+            new_email, link,
             language=user.language.value if user.language else None,
         )
         logger.info("Email change requested for user %s", user.id)

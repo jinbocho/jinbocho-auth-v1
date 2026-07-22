@@ -4,9 +4,10 @@ import logging
 from dataclasses import dataclass
 from uuid import UUID
 
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 from app.domain.entities.enums import MembershipStatus
+from app.domain.exceptions import EntityNotFoundError, InvalidImageUploadError
 from app.domain.repositories import MembershipRepository, UserRepository
 
 logger = logging.getLogger(__name__)
@@ -31,26 +32,33 @@ class UploadAvatarUseCase:
 
     async def execute(self, inp: UploadAvatarInput) -> str:
         if inp.content_type not in _ALLOWED_TYPES:
-            raise ValueError(f"Unsupported image type: {inp.content_type}")
+            raise InvalidImageUploadError(f"Unsupported image type: {inp.content_type}")
         if len(inp.image_bytes) > _MAX_RAW_BYTES:
-            raise ValueError("Image too large (max 2 MB)")
+            raise InvalidImageUploadError("Image too large (max 2 MB)")
 
         user = await self._user_repo.find_by_id(inp.user_id)
         if not user:
-            raise LookupError("User not found")
+            raise EntityNotFoundError("User not found")
         membership = await self._membership_repo.find_by_user_and_library(user.id, inp.library_id)
         if membership is None or membership.status != MembershipStatus.ACTIVE:
-            raise LookupError("User not found")
+            raise EntityNotFoundError("User not found")
 
-        img = Image.open(io.BytesIO(inp.image_bytes)).convert("RGB")
-        side = min(img.width, img.height)
-        left = (img.width - side) // 2
-        top = (img.height - side) // 2
-        img = img.crop((left, top, left + side, top + side))
-        img = img.resize((_TARGET_PX, _TARGET_PX), Image.Resampling.LANCZOS)
+        # content_type is client-supplied and trivially spoofable (confirmed via
+        # pentest: plain text uploaded with type=image/png passed the check
+        # above unchanged) — it is not a security boundary, only a cheap early
+        # reject. The actual validation is PIL failing to decode the bytes.
+        try:
+            img = Image.open(io.BytesIO(inp.image_bytes)).convert("RGB")
+            side = min(img.width, img.height)
+            left = (img.width - side) // 2
+            top = (img.height - side) // 2
+            img = img.crop((left, top, left + side, top + side))
+            img = img.resize((_TARGET_PX, _TARGET_PX), Image.Resampling.LANCZOS)
 
-        buf = io.BytesIO()
-        img.save(buf, format="WEBP", quality=80)
+            buf = io.BytesIO()
+            img.save(buf, format="WEBP", quality=80)
+        except (UnidentifiedImageError, Image.DecompressionBombError, OSError) as exc:
+            raise InvalidImageUploadError("Invalid or corrupted image file") from exc
         data_url = "data:image/webp;base64," + base64.b64encode(buf.getvalue()).decode()
 
         user.avatar_url = data_url

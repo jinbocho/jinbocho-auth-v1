@@ -45,16 +45,24 @@ class RefreshTokenUseCase:
 
         if not stored_token:
             raise InvalidCredentialsError("Invalid refresh token")
+        if stored_token.expires_at < now:
+            raise InvalidCredentialsError("Token expired")
 
-        self._token_service.validate_token_not_revoked(stored_token, now)
+        # Atomic claim (single conditional UPDATE, see
+        # RefreshTokenRepository.revoke): concurrent requests replaying the
+        # same stolen/leaked token race here, and exactly one can win —
+        # confirmed via pentest that a plain "read revoked_at, then revoke"
+        # sequence let 5 concurrent requests all pass validation and all
+        # mint a new token pair from a single refresh token.
+        claimed = await self._refresh_token_repo.revoke(token_hash)
+        if not claimed:
+            raise InvalidCredentialsError("Token revoked")
 
         user = await self._user_repo.find_by_id(stored_token.user_id)
         if not user:
             raise InvalidCredentialsError("Invalid refresh token")
         if not user.is_active:
             raise InactiveUserError("User is inactive")
-
-        await self._refresh_token_repo.revoke(token_hash)
 
         # Re-resolve on every refresh, not just at login: a membership
         # suspended/revoked while the access token was still live must not

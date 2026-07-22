@@ -47,13 +47,14 @@ class SQLAlchemyEmailChangeTokenRepository(EmailChangeTokenRepository):
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None
 
-    async def mark_used(self, token_id: UUID, used_at: datetime) -> None:
-        await self._session.execute(
+    async def mark_used(self, token_id: UUID, used_at: datetime) -> bool:
+        result = await self._session.execute(
             update(EmailChangeTokenModel)
-            .where(EmailChangeTokenModel.id == token_id)
+            .where(EmailChangeTokenModel.id == token_id, EmailChangeTokenModel.used_at.is_(None))
             .values(used_at=used_at)
         )
         await self._session.flush()
+        return result.rowcount > 0
 
     async def invalidate_pending(self, user_id: UUID, used_at: datetime) -> None:
         await self._session.execute(

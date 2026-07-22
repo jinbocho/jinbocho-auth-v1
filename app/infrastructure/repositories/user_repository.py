@@ -88,6 +88,14 @@ class SQLAlchemyUserRepository(UserRepository):
         )
         return [self._to_entity(model) for model in result.scalars().all()]
 
+    async def lock_active_admins(self, library_id: UUID) -> list[User]:
+        result = await self._session.execute(
+            select(UserModel)
+            .where(UserModel.library_id == library_id, UserModel.is_active.is_(True))
+            .with_for_update()
+        )
+        return [self._to_entity(model) for model in result.scalars().all()]
+
     async def search_active_excluding_library(
         self, query: str, exclude_library_id: UUID, limit: int
     ) -> list[User]:

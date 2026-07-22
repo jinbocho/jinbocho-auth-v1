@@ -3,13 +3,14 @@ from datetime import datetime
 from uuid import UUID
 
 from app.domain.entities import MembershipStatus, UserRole
-from app.domain.exceptions import EntityNotFoundError
+from app.domain.exceptions import EntityNotFoundError, ForbiddenError
 from app.domain.repositories import MembershipRepository, UserRepository
 
 
 @dataclass
 class GetMemberInput:
     library_id: UUID
+    requester_library_id: UUID
     user_id: UUID
 
 
@@ -36,6 +37,9 @@ class GetMemberUseCase:
         self._user_repo = user_repo
 
     async def execute(self, input: GetMemberInput) -> GetMemberOutput:
+        if input.library_id != input.requester_library_id:
+            raise ForbiddenError("Cannot view another library's member")
+
         membership = await self._membership_repo.find_by_user_and_library(input.user_id, input.library_id)
         if membership is None or membership.status != MembershipStatus.ACTIVE:
             raise EntityNotFoundError("Member not found")

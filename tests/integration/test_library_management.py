@@ -139,7 +139,8 @@ async def test_delete_library_succeeds_with_correct_credentials(async_client):
 
     token = await _login(async_client, email, "Password123!")
 
-    response = await async_client.delete(
+    response = await async_client.request(
+        "DELETE",
         f"/v1/libraries/{library_id}",
         json={"password": "Password123!", "confirm_library_name": "Doomed Library"},
         headers={"Authorization": f"Bearer {token}"},
@@ -159,7 +160,8 @@ async def test_delete_library_wrong_password_returns_401(async_client, test_libr
         await async_client.get(f"/v1/libraries/{library_id}", headers={"Authorization": f"Bearer {token}"})
     ).json()["name"]
 
-    response = await async_client.delete(
+    response = await async_client.request(
+        "DELETE",
         f"/v1/libraries/{library_id}",
         json={"password": "WrongPassword!", "confirm_library_name": library_name},
         headers={"Authorization": f"Bearer {token}"},
@@ -182,7 +184,8 @@ async def test_delete_library_non_admin_returns_403(async_client, test_library_a
     await async_client.post("/v1/auth/reset-password", json={"token": raw_token, "new_password": "Viewer123!"})
 
     viewer_token = await _login(async_client, viewer_email, "Viewer123!")
-    response = await async_client.delete(
+    response = await async_client.request(
+        "DELETE",
         f"/v1/libraries/{test_library_and_user['library_id']}",
         json={"password": "Viewer123!", "confirm_library_name": "Test Library"},
         headers={"Authorization": f"Bearer {viewer_token}"},

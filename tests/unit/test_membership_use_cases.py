@@ -124,7 +124,8 @@ async def test_invite_member_creates_pending_membership_for_existing_user(
     )
     result = await use_case.execute(
         InviteMemberInput(
-            library_id=other_library.id, invited_by=inviter.id, email=existing.email, full_name=None, role=UserRole.EDITOR
+            library_id=other_library.id, requester_library_id=other_library.id, invited_by=inviter.id,
+            email=existing.email, full_name=None, role=UserRole.EDITOR,
         )
     )
 
@@ -154,7 +155,10 @@ async def test_invite_member_creates_new_account_and_active_membership(
         invite_expire_minutes=10080, frontend_base_url="http://localhost:5173",
     )
     result = await use_case.execute(
-        InviteMemberInput(library_id=library_id, invited_by=uuid4(), email="brandnew@example.com", full_name="Brand New", role=UserRole.VIEWER)
+        InviteMemberInput(
+            library_id=library_id, requester_library_id=library_id, invited_by=uuid4(),
+            email="brandnew@example.com", full_name="Brand New", role=UserRole.VIEWER,
+        )
     )
 
     assert result.is_new_account is True
@@ -217,7 +221,10 @@ async def test_declined_invitation_can_be_re_invited(
         invite_expire_minutes=10080, frontend_base_url="http://localhost:5173",
     )
     result = await invite_use_case.execute(
-        InviteMemberInput(library_id=library.id, invited_by=inviter.id, email=existing.email, full_name=None, role=UserRole.EDITOR)
+        InviteMemberInput(
+            library_id=library.id, requester_library_id=library.id, invited_by=inviter.id,
+            email=existing.email, full_name=None, role=UserRole.EDITOR,
+        )
     )
     assert result.status == MembershipStatus.INVITED
 
@@ -231,7 +238,7 @@ async def test_list_members_returns_roster_via_membership(mock_membership_repo, 
     )
 
     use_case = ListMembersUseCase(mock_membership_repo, mock_user_repo)
-    result = await use_case.execute(ListMembersInput(library_id=library_id))
+    result = await use_case.execute(ListMembersInput(library_id=library_id, requester_library_id=library_id))
 
     assert len(result.members) == 1
     assert result.members[0].email == "member@example.com"
@@ -247,7 +254,9 @@ async def test_get_member_returns_profile_for_active_member(mock_membership_repo
     )
 
     use_case = GetMemberUseCase(mock_membership_repo, mock_user_repo)
-    result = await use_case.execute(GetMemberInput(library_id=library_id, user_id=user.id))
+    result = await use_case.execute(
+        GetMemberInput(library_id=library_id, requester_library_id=library_id, user_id=user.id)
+    )
 
     assert result.full_name == "Jane Member"
     assert result.email == "member@example.com"
@@ -261,7 +270,7 @@ async def test_get_member_rejects_non_member(mock_membership_repo, mock_user_rep
 
     use_case = GetMemberUseCase(mock_membership_repo, mock_user_repo)
     with pytest.raises(EntityNotFoundError):
-        await use_case.execute(GetMemberInput(library_id=library_id, user_id=user.id))
+        await use_case.execute(GetMemberInput(library_id=library_id, requester_library_id=library_id, user_id=user.id))
 
 
 @pytest.mark.asyncio
@@ -274,7 +283,7 @@ async def test_get_member_rejects_invited_not_yet_active(mock_membership_repo, m
 
     use_case = GetMemberUseCase(mock_membership_repo, mock_user_repo)
     with pytest.raises(EntityNotFoundError):
-        await use_case.execute(GetMemberInput(library_id=library_id, user_id=user.id))
+        await use_case.execute(GetMemberInput(library_id=library_id, requester_library_id=library_id, user_id=user.id))
 
 
 @pytest.mark.asyncio
@@ -289,10 +298,14 @@ async def test_search_members_matches_name_or_email(mock_membership_repo, mock_u
 
     use_case = SearchMembersUseCase(mock_membership_repo, mock_user_repo)
 
-    by_name = await use_case.execute(SearchMembersInput(library_id=library_id, query="ali"))
+    by_name = await use_case.execute(
+        SearchMembersInput(library_id=library_id, requester_library_id=library_id, query="ali")
+    )
     assert [r.email for r in by_name.results] == ["alice@example.com"]
 
-    by_email = await use_case.execute(SearchMembersInput(library_id=library_id, query="bob@"))
+    by_email = await use_case.execute(
+        SearchMembersInput(library_id=library_id, requester_library_id=library_id, query="bob@")
+    )
     assert [r.email for r in by_email.results] == ["bob@example.com"]
 
 
@@ -313,7 +326,9 @@ async def test_search_members_ignores_other_libraries_and_inactive(mock_membersh
     )
 
     use_case = SearchMembersUseCase(mock_membership_repo, mock_user_repo)
-    result = await use_case.execute(SearchMembersInput(library_id=library_id, query="marco"))
+    result = await use_case.execute(
+        SearchMembersInput(library_id=library_id, requester_library_id=library_id, query="marco")
+    )
 
     assert [r.email for r in result.results] == ["here@example.com"]
 
@@ -321,7 +336,10 @@ async def test_search_members_ignores_other_libraries_and_inactive(mock_membersh
 @pytest.mark.asyncio
 async def test_search_members_requires_minimum_query_length(mock_membership_repo, mock_user_repo):
     use_case = SearchMembersUseCase(mock_membership_repo, mock_user_repo)
-    result = await use_case.execute(SearchMembersInput(library_id=uuid4(), query="a"))
+    library_id = uuid4()
+    result = await use_case.execute(
+        SearchMembersInput(library_id=library_id, requester_library_id=library_id, query="a")
+    )
     assert result.results == []
 
 
@@ -335,7 +353,9 @@ async def test_search_members_respects_limit(mock_membership_repo, mock_user_rep
         )
 
     use_case = SearchMembersUseCase(mock_membership_repo, mock_user_repo)
-    result = await use_case.execute(SearchMembersInput(library_id=library_id, query="person", limit=3))
+    result = await use_case.execute(
+        SearchMembersInput(library_id=library_id, requester_library_id=library_id, query="person", limit=3)
+    )
     assert len(result.results) == 3
 
 
@@ -348,7 +368,11 @@ async def test_update_membership_blocks_demoting_last_admin(mock_membership_repo
     use_case = UpdateMembershipUseCase(mock_membership_repo)
 
     with pytest.raises(LastAdminError):
-        await use_case.execute(UpdateMembershipInput(library_id=library_id, target_user_id=user_id, role=UserRole.EDITOR))
+        await use_case.execute(
+            UpdateMembershipInput(
+                library_id=library_id, requester_library_id=library_id, target_user_id=user_id, role=UserRole.EDITOR
+            )
+        )
 
 
 @pytest.mark.asyncio
@@ -362,7 +386,11 @@ async def test_update_membership_allows_demoting_admin_with_another_admin_presen
         LibraryMembership(user_id=other_admin_id, library_id=library_id, role=UserRole.ADMIN, status=MembershipStatus.ACTIVE)
     )
     use_case = UpdateMembershipUseCase(mock_membership_repo)
-    await use_case.execute(UpdateMembershipInput(library_id=library_id, target_user_id=user_id, role=UserRole.EDITOR))
+    await use_case.execute(
+        UpdateMembershipInput(
+            library_id=library_id, requester_library_id=library_id, target_user_id=user_id, role=UserRole.EDITOR
+        )
+    )
 
     membership = await mock_membership_repo.find_by_user_and_library(user_id, library_id)
     assert membership.role == UserRole.EDITOR
@@ -383,7 +411,11 @@ async def test_update_membership_rejects_promoting_a_non_child_to_child(mock_mem
     use_case = UpdateMembershipUseCase(mock_membership_repo)
 
     with pytest.raises(ForbiddenError):
-        await use_case.execute(UpdateMembershipInput(library_id=library_id, target_user_id=user_id, role=UserRole.CHILD))
+        await use_case.execute(
+            UpdateMembershipInput(
+                library_id=library_id, requester_library_id=library_id, target_user_id=user_id, role=UserRole.CHILD
+            )
+        )
 
 
 @pytest.mark.asyncio
@@ -395,7 +427,11 @@ async def test_update_membership_allows_demoting_a_child_to_a_normal_role(mock_m
         LibraryMembership(user_id=user_id, library_id=library_id, role=UserRole.CHILD, status=MembershipStatus.ACTIVE)
     )
     use_case = UpdateMembershipUseCase(mock_membership_repo)
-    await use_case.execute(UpdateMembershipInput(library_id=library_id, target_user_id=user_id, role=UserRole.VIEWER))
+    await use_case.execute(
+        UpdateMembershipInput(
+            library_id=library_id, requester_library_id=library_id, target_user_id=user_id, role=UserRole.VIEWER
+        )
+    )
 
     membership = await mock_membership_repo.find_by_user_and_library(user_id, library_id)
     assert membership.role == UserRole.VIEWER
@@ -410,7 +446,9 @@ async def test_remove_membership_blocks_removing_last_admin(mock_membership_repo
     use_case = RemoveMembershipUseCase(mock_membership_repo)
 
     with pytest.raises(LastAdminError):
-        await use_case.execute(RemoveMembershipInput(library_id=library_id, target_user_id=user_id))
+        await use_case.execute(
+            RemoveMembershipInput(library_id=library_id, requester_library_id=library_id, target_user_id=user_id)
+        )
 
 
 @pytest.mark.asyncio
@@ -424,7 +462,9 @@ async def test_remove_membership_revokes_without_touching_other_libraries(mock_m
         LibraryMembership(user_id=user_id, library_id=library_b, role=UserRole.ADMIN, status=MembershipStatus.ACTIVE)
     )
     use_case = RemoveMembershipUseCase(mock_membership_repo)
-    await use_case.execute(RemoveMembershipInput(library_id=library_a, target_user_id=user_id))
+    await use_case.execute(
+        RemoveMembershipInput(library_id=library_a, requester_library_id=library_a, target_user_id=user_id)
+    )
 
     revoked = await mock_membership_repo.find_by_user_and_library(user_id, library_a)
     untouched = await mock_membership_repo.find_by_user_and_library(user_id, library_b)
@@ -453,7 +493,9 @@ async def test_membership_activity_includes_added_and_removed(mock_membership_re
     await mock_membership_repo.save(revoked_membership)
 
     use_case = ListMembershipActivityUseCase(mock_membership_repo, mock_user_repo)
-    result = await use_case.execute(ListMembershipActivityInput(library_id=library_id))
+    result = await use_case.execute(
+        ListMembershipActivityInput(library_id=library_id, requester_library_id=library_id)
+    )
 
     events = {(item.full_name, item.event) for item in result.items}
     assert events == {("Joined User", "member_added"), ("Removed User", "member_removed")}
@@ -482,7 +524,9 @@ async def test_membership_activity_includes_founding_admin_without_invited_at(
     )
 
     use_case = ListMembershipActivityUseCase(mock_membership_repo, mock_user_repo)
-    result = await use_case.execute(ListMembershipActivityInput(library_id=library_id))
+    result = await use_case.execute(
+        ListMembershipActivityInput(library_id=library_id, requester_library_id=library_id)
+    )
 
     assert len(result.items) == 1
     assert result.items[0].full_name == "Founding Admin"
@@ -503,7 +547,9 @@ async def test_membership_activity_respects_limit(mock_membership_repo, mock_use
         )
 
     use_case = ListMembershipActivityUseCase(mock_membership_repo, mock_user_repo)
-    result = await use_case.execute(ListMembershipActivityInput(library_id=library_id, limit=2))
+    result = await use_case.execute(
+        ListMembershipActivityInput(library_id=library_id, requester_library_id=library_id, limit=2)
+    )
 
     assert len(result.items) == 2
 

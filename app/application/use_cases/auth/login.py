@@ -10,6 +10,14 @@ from app.domain.services import PasswordHasher
 
 logger = logging.getLogger(__name__)
 
+# Constant-time defense against email enumeration via response timing
+# (CWE-208, confirmed via pentest: ~200ms for a real email vs ~15ms for an
+# unknown one, since bcrypt.verify was skipped entirely on `not user`). This
+# is a valid bcrypt hash of an arbitrary, never-used password — verifying
+# against it when the user doesn't exist forces the same bcrypt cost as a
+# real login attempt, so timing no longer reveals whether the email exists.
+_DUMMY_PASSWORD_HASH = "$2b$12$jDfk5mwms7vdZ8qn7nM1qelTaxrE1XrHSDAB8fv6spbboJTDuS7dK"
+
 
 @dataclass
 class LoginInput:
@@ -48,7 +56,9 @@ class LoginUseCase:
 
     async def execute(self, input: LoginInput) -> LoginOutput:
         user = await self._user_repo.find_by_email(input.email)
-        if not user or not self._password_hasher.verify(input.password, user.password_hash):
+        password_hash = user.password_hash if user else _DUMMY_PASSWORD_HASH
+        password_ok = self._password_hasher.verify(input.password, password_hash)
+        if not user or not password_ok:
             logger.warning("Failed login attempt for email %s", input.email)
             raise InvalidCredentialsError("Invalid credentials")
         if not user.is_active:

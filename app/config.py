@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     smtp_user: str | None = None
     smtp_password: str | None = None
     smtp_timeout_seconds: int = 10
-    email_from: str = "noreply@jinbocho.local"
+    email_from: str = "noreply@jinbocho.eu"
 
     # Scheduled maintenance
     token_cleanup_interval_hours: int = 1

@@ -3,6 +3,7 @@ from datetime import datetime
 from uuid import UUID
 
 from app.domain.entities import MembershipStatus, UserRole
+from app.domain.exceptions import ForbiddenError
 from app.domain.repositories import MembershipRepository, UserRepository
 
 MembershipActivityEvent = str  # "member_added" | "member_removed"
@@ -11,6 +12,7 @@ MembershipActivityEvent = str  # "member_added" | "member_removed"
 @dataclass
 class ListMembershipActivityInput:
     library_id: UUID
+    requester_library_id: UUID
     limit: int = 20
 
 
@@ -40,6 +42,9 @@ class ListMembershipActivityUseCase:
         self._user_repo = user_repo
 
     async def execute(self, input: ListMembershipActivityInput) -> ListMembershipActivityOutput:
+        if input.library_id != input.requester_library_id:
+            raise ForbiddenError("Cannot view another library's membership activity")
+
         memberships = await self._membership_repo.find_by_library(input.library_id, statuses=None)
 
         items: list[MembershipActivityItem] = []

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from app.domain.entities import MembershipStatus, UserRole
-from app.domain.exceptions import EntityNotFoundError, LastAdminError
+from app.domain.exceptions import EntityNotFoundError, ForbiddenError, LastAdminError
 from app.domain.repositories import MembershipRepository
 
 logger = logging.getLogger(__name__)
@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RemoveMembershipInput:
     library_id: UUID
+    requester_library_id: UUID
     target_user_id: UUID
 
 
@@ -25,12 +26,15 @@ class RemoveMembershipUseCase:
         self._membership_repo = membership_repo
 
     async def execute(self, input: RemoveMembershipInput) -> None:
+        if input.library_id != input.requester_library_id:
+            raise ForbiddenError("Cannot remove another library's member")
+
         membership = await self._membership_repo.find_by_user_and_library(input.target_user_id, input.library_id)
         if membership is None or membership.status == MembershipStatus.REVOKED:
             raise EntityNotFoundError("Membership not found")
 
         if membership.role == UserRole.ADMIN and membership.status == MembershipStatus.ACTIVE:
-            siblings = await self._membership_repo.find_by_library(input.library_id, [MembershipStatus.ACTIVE])
+            siblings = await self._membership_repo.lock_active_admins(input.library_id)
             other_active_admins = any(s.user_id != input.target_user_id and s.role == UserRole.ADMIN for s in siblings)
             if not other_active_admins:
                 raise LastAdminError("Cannot remove the library's last active admin")

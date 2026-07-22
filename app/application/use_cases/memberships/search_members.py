@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from app.domain.entities import MembershipStatus, UserRole
+from app.domain.exceptions import ForbiddenError
 from app.domain.repositories import MembershipRepository, UserRepository
 
 _MIN_QUERY_CHARS = 2
@@ -10,6 +11,7 @@ _MIN_QUERY_CHARS = 2
 @dataclass
 class SearchMembersInput:
     library_id: UUID
+    requester_library_id: UUID
     query: str
     limit: int = 3
 
@@ -41,6 +43,9 @@ class SearchMembersUseCase:
         self._user_repo = user_repo
 
     async def execute(self, input: SearchMembersInput) -> SearchMembersOutput:
+        if input.library_id != input.requester_library_id:
+            raise ForbiddenError("Cannot search another library's members")
+
         needle = input.query.strip().lower()
         if len(needle) < _MIN_QUERY_CHARS:
             return SearchMembersOutput(results=[])

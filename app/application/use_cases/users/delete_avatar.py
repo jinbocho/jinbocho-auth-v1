@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from app.domain.entities.enums import MembershipStatus
+from app.domain.exceptions import EntityNotFoundError
 from app.domain.repositories import MembershipRepository, UserRepository
 
 logger = logging.getLogger(__name__)
@@ -22,10 +23,10 @@ class DeleteAvatarUseCase:
     async def execute(self, inp: DeleteAvatarInput) -> None:
         user = await self._user_repo.find_by_id(inp.user_id)
         if not user:
-            raise LookupError("User not found")
+            raise EntityNotFoundError("User not found")
         membership = await self._membership_repo.find_by_user_and_library(user.id, inp.library_id)
         if membership is None or membership.status != MembershipStatus.ACTIVE:
-            raise LookupError("User not found")
+            raise EntityNotFoundError("User not found")
 
         user.avatar_url = None
         await self._user_repo.save(user)

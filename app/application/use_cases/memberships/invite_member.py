@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class InviteMemberInput:
     library_id: UUID
+    requester_library_id: UUID
     invited_by: UUID
     email: str
     full_name: str | None
@@ -72,6 +73,9 @@ class InviteMemberUseCase:
         self._frontend_base_url = frontend_base_url
 
     async def execute(self, input: InviteMemberInput) -> InviteMemberOutput:
+        if input.library_id != input.requester_library_id:
+            raise ForbiddenError("Cannot invite a member to another library")
+
         existing_user = await self._user_repo.find_by_email(input.email)
 
         if existing_user is not None:

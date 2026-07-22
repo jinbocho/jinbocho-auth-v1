@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from app.domain.entities import MembershipStatus, UserRole
-from app.domain.exceptions import EntityNotFoundError, ForbiddenError, LastAdminError
+from app.domain.exceptions import EntityNotFoundError, ForbiddenError, LastAdminError, ValidationError
 from app.domain.repositories import MembershipRepository
 
 logger = logging.getLogger(__name__)
@@ -14,6 +14,7 @@ _ALLOWED_STATUS_TRANSITIONS = frozenset((MembershipStatus.ACTIVE, MembershipStat
 @dataclass
 class UpdateMembershipInput:
     library_id: UUID
+    requester_library_id: UUID
     target_user_id: UUID
     role: UserRole | None = None
     status: MembershipStatus | None = None
@@ -29,8 +30,11 @@ class UpdateMembershipUseCase:
         self._membership_repo = membership_repo
 
     async def execute(self, input: UpdateMembershipInput) -> None:
+        if input.library_id != input.requester_library_id:
+            raise ForbiddenError("Cannot update another library's membership")
+
         if input.status is not None and input.status not in _ALLOWED_STATUS_TRANSITIONS:
-            raise ValueError("status must be 'active' or 'suspended'")
+            raise ValidationError("status must be 'active' or 'suspended'")
 
         membership = await self._membership_repo.find_by_user_and_library(input.target_user_id, input.library_id)
         if membership is None or membership.status == MembershipStatus.REVOKED:
@@ -49,7 +53,7 @@ class UpdateMembershipUseCase:
         if membership.role == UserRole.ADMIN and membership.status == MembershipStatus.ACTIVE and (
             demoting_admin or suspending
         ):
-            siblings = await self._membership_repo.find_by_library(input.library_id, [MembershipStatus.ACTIVE])
+            siblings = await self._membership_repo.lock_active_admins(input.library_id)
             other_active_admins = any(
                 s.user_id != input.target_user_id and s.role == UserRole.ADMIN for s in siblings
             )

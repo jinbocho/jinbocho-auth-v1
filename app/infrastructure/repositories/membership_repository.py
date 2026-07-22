@@ -79,6 +79,17 @@ class SQLAlchemyMembershipRepository(MembershipRepository):
         result = await self._session.execute(query)
         return [self._to_entity(model) for model in result.scalars().all()]
 
+    async def lock_active_admins(self, library_id: UUID) -> list[LibraryMembership]:
+        result = await self._session.execute(
+            select(LibraryMembershipModel)
+            .where(
+                LibraryMembershipModel.library_id == library_id,
+                LibraryMembershipModel.status == MembershipStatus.ACTIVE.value,
+            )
+            .with_for_update()
+        )
+        return [self._to_entity(model) for model in result.scalars().all()]
+
     async def delete(self, id: UUID) -> None:
         model = await self._session.get(LibraryMembershipModel, id)
         if model is not None:

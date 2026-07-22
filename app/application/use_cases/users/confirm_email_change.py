@@ -58,8 +58,15 @@ class ConfirmEmailChangeUseCase:
         if existing and existing.id != user.id:
             raise EmailAlreadyRegisteredError("Email already registered")
 
+        # Atomic claim (single conditional UPDATE, see
+        # EmailChangeTokenRepository.mark_used) — same race class confirmed
+        # via pentest on the refresh-token flow: a plain "read used_at, then
+        # mark_used" sequence lets every concurrent request pass validation.
+        claimed = await self._email_change_token_repo.mark_used(token.id, now)
+        if not claimed:
+            raise EmailChangeTokenAlreadyUsedError("Email change token has already been used")
+
         user.email = token.new_email
         user.updated_at = now
         await self._user_repo.save(user)
-        await self._email_change_token_repo.mark_used(token.id, now)
         logger.info("Email change confirmed for user %s", user.id)

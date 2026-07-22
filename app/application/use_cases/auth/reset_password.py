@@ -53,9 +53,18 @@ class ResetPasswordUseCase:
         if not user or not user.is_active:
             raise InvalidResetTokenError("Invalid or expired reset token")
 
+        # Atomic claim (single conditional UPDATE, see
+        # PasswordResetTokenRepository.mark_used): concurrent requests
+        # replaying the same reset/invite token race here, and exactly one
+        # can win — the same class of bug confirmed via pentest on the
+        # refresh-token flow, where a plain "read used_at, then mark_used"
+        # sequence let every concurrent request pass validation.
+        claimed = await self._reset_token_repo.mark_used(token.id, now)
+        if not claimed:
+            raise ResetTokenAlreadyUsedError("Reset token has already been used")
+
         user.password_hash = self._password_hasher.hash(input.new_password)
         user.password_set_at = now
         user.updated_at = now
         await self._user_repo.save(user)
-        await self._reset_token_repo.mark_used(token.id, now)
         logger.info("Password reset completed for user %s (purpose: %s)", user.id, token.purpose)

@@ -49,6 +49,9 @@ class MockUserRepository(UserRepository):
     async def find_by_library(self, library_id) -> list[User]:
         return [u for u in self.users.values() if u.library_id == library_id]
 
+    async def lock_active_admins(self, library_id) -> list[User]:
+        return [u for u in self.users.values() if u.library_id == library_id and u.is_active]
+
     async def search_active_excluding_library(self, query: str, exclude_library_id, limit: int) -> list[User]:
         excluded_ids: set = set()
         if self.membership_repo is not None:
@@ -114,6 +117,12 @@ class MockMembershipRepository(MembershipRepository):
             result = [m for m in result if m.status in statuses]
         return result
 
+    async def lock_active_admins(self, library_id) -> list[LibraryMembership]:
+        return [
+            m for m in self.memberships.values()
+            if m.library_id == library_id and m.status == MembershipStatus.ACTIVE
+        ]
+
     async def delete(self, id) -> None:
         self.memberships.pop(id, None)
 
@@ -129,10 +138,12 @@ class MockRefreshTokenRepository(RefreshTokenRepository):
     async def find_by_hash(self, token_hash: str) -> RefreshToken | None:
         return self.tokens.get(token_hash)
 
-    async def revoke(self, token_hash: str) -> None:
-        if token_hash in self.tokens:
-            token = self.tokens[token_hash]
-            token.revoked_at = datetime.now(timezone.utc)
+    async def revoke(self, token_hash: str) -> bool:
+        token = self.tokens.get(token_hash)
+        if token is None or token.revoked_at is not None:
+            return False
+        token.revoked_at = datetime.now(timezone.utc)
+        return True
 
     async def revoke_all_for_users(self, user_ids: list) -> int:
         now = datetime.now(timezone.utc)
@@ -165,10 +176,12 @@ class MockPasswordResetTokenRepository(PasswordResetTokenRepository):
                 return token
         return None
 
-    async def mark_used(self, token_id, used_at) -> None:
+    async def mark_used(self, token_id, used_at) -> bool:
         token = self.tokens.get(token_id)
-        if token:
-            token.used_at = used_at
+        if token is None or token.used_at is not None:
+            return False
+        token.used_at = used_at
+        return True
 
     async def invalidate_pending(self, user_id, purpose, used_at) -> None:
         for token in self.tokens.values():
@@ -193,10 +206,12 @@ class MockEmailChangeTokenRepository(EmailChangeTokenRepository):
                 return token
         return None
 
-    async def mark_used(self, token_id, used_at) -> None:
+    async def mark_used(self, token_id, used_at) -> bool:
         token = self.tokens.get(token_id)
-        if token:
-            token.used_at = used_at
+        if token is None or token.used_at is not None:
+            return False
+        token.used_at = used_at
+        return True
 
     async def invalidate_pending(self, user_id, used_at) -> None:
         for token in self.tokens.values():

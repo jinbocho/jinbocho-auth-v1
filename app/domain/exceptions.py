@@ -60,3 +60,16 @@ class InvalidEmailChangeTokenError(ValueError):
 
 class EmailChangeTokenAlreadyUsedError(InvalidEmailChangeTokenError):
     """An email-change verification token has already been consumed."""
+
+
+class InvalidImageUploadError(ValueError):
+    """An uploaded avatar is the wrong content type, too large, or not a
+    decodable image at all (including corrupted/malicious files that fail
+    PIL's own decode step)."""
+
+
+class ValidationError(ValueError):
+    """Input satisfies its Pydantic schema (right type) but fails a
+    use-case-level semantic check the schema can't express — e.g. a free-form
+    `status: str` field holding a value outside the allowed transitions, or a
+    required consent field submitted empty."""
