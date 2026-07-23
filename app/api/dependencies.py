@@ -465,9 +465,10 @@ def get_request_email_change_use_case(
     email_change_token_repo: EmailChangeTokenRepository = Depends(get_email_change_token_repository),
     email_sender: EmailService = Depends(get_email_sender),
     token_service: TokenService = Depends(get_token_service),
+    password_hasher: PasswordHasher = Depends(get_password_hasher),
 ) -> RequestEmailChangeUseCase:
     return RequestEmailChangeUseCase(
-        user_repo, email_change_token_repo, email_sender, token_service,
+        user_repo, email_change_token_repo, email_sender, token_service, password_hasher,
         settings.email_change_expire_minutes, settings.frontend_base_url,
     )
 

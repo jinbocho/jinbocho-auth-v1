@@ -1,0 +1,30 @@
+{% extends "_base.html" %}
+{% block preheader %}È stata richiesta la modifica dell'indirizzo email del tuo account Jinbocho.{% endblock %}
+{% block content %}
+<h2 class="email-title">Richiesta di cambio email</h2>
+<p class="email-meta">Sicurezza &middot; Account</p>
+<p class="email-text">
+  È stata richiesta la modifica dell'indirizzo email del tuo account Jinbocho a <strong>{{ new_email }}</strong>.
+</p>
+<p class="email-text">
+  La modifica avrà effetto solo dopo la conferma da parte del nuovo indirizzo, e questa casella continuerà a funzionare normalmente fino ad allora.
+</p>
+<p class="email-note">
+  Se sei stato tu, non devi fare nulla.
+</p>
+<p class="email-note">
+  Se <strong>non sei stato tu</strong>, la tua sessione potrebbe essere compromessa &mdash; reimposta subito la password.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" class="cta-table">
+  <tr>
+    <td class="cta-cell" bgcolor="#bc002d" style="background-color:#bc002d;border-radius:8px;mso-padding-alt:0;">
+      <a href="{{ reset_link }}" class="cta-link" style="display:inline-block;padding:14px 40px;color:#ffffff !important;text-decoration:none;font-size:15px;font-weight:600;border-radius:8px;letter-spacing:0.02em;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">Reimposta la mia password</a>
+    </td>
+  </tr>
+</table>
+<p class="fallback-block">
+  Oppure copia questo link nel browser:<br />
+  <a href="{{ reset_link }}" class="fallback-link" style="color:#bc002d !important;word-break:break-all;font-size:11px;text-decoration:none;">{{ reset_link }}</a>
+</p>
+{% endblock %}
+{% block footer_text %}Gestione della biblioteca di casa{% endblock %}

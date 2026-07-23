@@ -13,16 +13,28 @@ from app.domain.exceptions import (
 	EmailAlreadyRegisteredError,
 	EmailChangeTokenAlreadyUsedError,
 	EntityNotFoundError,
+	IncorrectPasswordError,
 	InvalidEmailChangeTokenError,
 )
 
+CORRECT_PASSWORD = "correct-password"
+
 
 @pytest.fixture
-def request_use_case(mock_user_repo, mock_email_change_token_repo, fake_email_sender, token_service):
+def request_use_case(mock_user_repo, mock_email_change_token_repo, fake_email_sender, token_service, password_hasher):
 	return RequestEmailChangeUseCase(
-		mock_user_repo, mock_email_change_token_repo, fake_email_sender, token_service,
+		mock_user_repo, mock_email_change_token_repo, fake_email_sender, token_service, password_hasher,
 		expire_minutes=30, frontend_base_url="http://localhost:5173",
 	)
+
+
+@pytest.fixture
+def test_user_with_password(test_user, password_hasher):
+	"""test_user's default password_hash is a placeholder string, not a real
+	bcrypt hash — the request-email-change flow now verifies it, so give it a
+	real one here rather than mutating the shared fixture for every test."""
+	test_user.password_hash = password_hasher.hash(CORRECT_PASSWORD)
+	return test_user
 
 
 @pytest.fixture
@@ -32,18 +44,25 @@ def confirm_use_case(mock_user_repo, mock_email_change_token_repo, token_service
 
 @pytest.mark.asyncio
 async def test_request_email_change_sends_verification_to_new_address(
-	request_use_case, mock_user_repo, mock_email_change_token_repo, fake_email_sender, test_user,
+	request_use_case, mock_user_repo, mock_email_change_token_repo, fake_email_sender, test_user_with_password,
 ):
+	test_user = test_user_with_password
 	await mock_user_repo.save(test_user)
 
 	await request_use_case.execute(
-		RequestEmailChangeInput(user_id=test_user.id, new_email="new@example.com")
+		RequestEmailChangeInput(user_id=test_user.id, new_email="new@example.com", current_password=CORRECT_PASSWORD)
 	)
 
 	assert test_user.email == "test@example.com", "email must not change until confirmed"
-	assert len(fake_email_sender.sent) == 1
-	assert fake_email_sender.sent[0]["to_email"] == "new@example.com"
-	assert "confirm-email-change?token=" in fake_email_sender.sent[0]["link"]
+	# One to the new address (verification link) and one to the old address
+	# (informational notice, so a hijacked session can't change email silently).
+	assert len(fake_email_sender.sent) == 2
+	verification = next(m for m in fake_email_sender.sent if m["purpose"] == "email_change")
+	notice = next(m for m in fake_email_sender.sent if m["purpose"] == "email_change_requested_notice")
+	assert verification["to_email"] == "new@example.com"
+	assert "confirm-email-change?token=" in verification["link"]
+	assert notice["to_email"] == "test@example.com"
+	assert notice["new_email"] == "new@example.com"
 	tokens = list(mock_email_change_token_repo.tokens.values())
 	assert len(tokens) == 1
 	assert tokens[0].new_email == "new@example.com"
@@ -51,13 +70,30 @@ async def test_request_email_change_sends_verification_to_new_address(
 
 
 @pytest.mark.asyncio
-async def test_request_email_change_is_noop_for_same_email(
-	request_use_case, mock_user_repo, mock_email_change_token_repo, fake_email_sender, test_user,
+async def test_request_email_change_rejects_wrong_password(
+	request_use_case, mock_user_repo, mock_email_change_token_repo, fake_email_sender, test_user_with_password,
 ):
+	test_user = test_user_with_password
+	await mock_user_repo.save(test_user)
+
+	with pytest.raises(IncorrectPasswordError):
+		await request_use_case.execute(
+			RequestEmailChangeInput(user_id=test_user.id, new_email="new@example.com", current_password="wrong")
+		)
+
+	assert fake_email_sender.sent == []
+	assert mock_email_change_token_repo.tokens == {}
+
+
+@pytest.mark.asyncio
+async def test_request_email_change_is_noop_for_same_email(
+	request_use_case, mock_user_repo, mock_email_change_token_repo, fake_email_sender, test_user_with_password,
+):
+	test_user = test_user_with_password
 	await mock_user_repo.save(test_user)
 
 	await request_use_case.execute(
-		RequestEmailChangeInput(user_id=test_user.id, new_email=test_user.email)
+		RequestEmailChangeInput(user_id=test_user.id, new_email=test_user.email, current_password=CORRECT_PASSWORD)
 	)
 
 	assert fake_email_sender.sent == []
@@ -66,8 +102,9 @@ async def test_request_email_change_is_noop_for_same_email(
 
 @pytest.mark.asyncio
 async def test_request_email_change_rejects_email_taken_by_another_user(
-	request_use_case, mock_user_repo, test_user, test_library,
+	request_use_case, mock_user_repo, test_user_with_password, test_library,
 ):
+	test_user = test_user_with_password
 	await mock_user_repo.save(test_user)
 	from app.domain.entities import User, UserRole
 	from uuid import uuid4
@@ -80,7 +117,9 @@ async def test_request_email_change_rejects_email_taken_by_another_user(
 
 	with pytest.raises(EmailAlreadyRegisteredError):
 		await request_use_case.execute(
-			RequestEmailChangeInput(user_id=test_user.id, new_email="taken@example.com")
+			RequestEmailChangeInput(
+				user_id=test_user.id, new_email="taken@example.com", current_password=CORRECT_PASSWORD
+			)
 		)
 
 
@@ -89,22 +128,25 @@ async def test_request_email_change_raises_for_unknown_user(request_use_case):
 	from uuid import uuid4
 
 	with pytest.raises(EntityNotFoundError):
-		await request_use_case.execute(RequestEmailChangeInput(user_id=uuid4(), new_email="x@example.com"))
+		await request_use_case.execute(
+			RequestEmailChangeInput(user_id=uuid4(), new_email="x@example.com", current_password="whatever")
+		)
 
 
 @pytest.mark.asyncio
 async def test_request_email_change_invalidates_earlier_pending_token(
-	request_use_case, mock_user_repo, mock_email_change_token_repo, test_user,
+	request_use_case, mock_user_repo, mock_email_change_token_repo, test_user_with_password,
 ):
+	test_user = test_user_with_password
 	await mock_user_repo.save(test_user)
 
 	await request_use_case.execute(
-		RequestEmailChangeInput(user_id=test_user.id, new_email="first@example.com")
+		RequestEmailChangeInput(user_id=test_user.id, new_email="first@example.com", current_password=CORRECT_PASSWORD)
 	)
 	first_token = next(iter(mock_email_change_token_repo.tokens.values()))
 
 	await request_use_case.execute(
-		RequestEmailChangeInput(user_id=test_user.id, new_email="second@example.com")
+		RequestEmailChangeInput(user_id=test_user.id, new_email="second@example.com", current_password=CORRECT_PASSWORD)
 	)
 
 	assert first_token.used_at is not None

@@ -1,0 +1,9 @@
+Une demande de changement de l'adresse email de votre compte Jinbocho vers {{ new_email }} a été effectuée.
+
+Le changement ne prendra effet qu'une fois cette nouvelle adresse confirmée, et cette boîte continuera de fonctionner normalement d'ici là.
+
+Si c'était vous, aucune action n'est nécessaire.
+
+Si ce n'était PAS vous, votre session est peut-être compromise : réinitialisez votre mot de passe maintenant :
+
+{{ reset_link }}

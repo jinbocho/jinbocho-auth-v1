@@ -1,0 +1,9 @@
+È stata richiesta la modifica dell'indirizzo email del tuo account Jinbocho a {{ new_email }}.
+
+La modifica avrà effetto solo dopo la conferma da parte del nuovo indirizzo, e questa casella continuerà a funzionare normalmente fino ad allora.
+
+Se sei stato tu, non devi fare nulla.
+
+Se NON sei stato tu, la tua sessione potrebbe essere compromessa: reimposta subito la password:
+
+{{ reset_link }}

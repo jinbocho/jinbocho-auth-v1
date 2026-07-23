@@ -1,0 +1,9 @@
+Se solicitó cambiar la dirección de email de tu cuenta de Jinbocho a {{ new_email }}.
+
+El cambio solo se aplicará cuando esa nueva dirección lo confirme, y este buzón seguirá funcionando con normalidad hasta entonces.
+
+Si fuiste tú, no necesitas hacer nada.
+
+Si NO fuiste tú, tu sesión podría estar comprometida: restablece tu contraseña ahora:
+
+{{ reset_link }}

@@ -20,7 +20,7 @@ async def test_email_change_full_flow(async_client, test_library_and_user, capsy
 
     change_response = await async_client.post(
         "/v1/users/me/email/change",
-        json={"new_email": new_email},
+        json={"new_email": new_email, "current_password": test_library_and_user["password"]},
         headers=headers,
     )
     assert change_response.status_code == 204
@@ -28,6 +28,12 @@ async def test_email_change_full_flow(async_client, test_library_and_user, capsy
     output = capsys.readouterr().out
     console_lines = [line for line in output.splitlines() if line.startswith("To:") or line.startswith("Link:")]
     assert any(new_email in line for line in console_lines), "verification link must be sent to the NEW address"
+    # The current (old) address also gets an informational notice — no
+    # confirmation link involved — so a hijacked session can't change the
+    # email silently without the real owner having any way to notice.
+    assert any(test_library_and_user["email"] in line for line in console_lines), (
+        "old address must receive a notice that a change was requested"
+    )
     link_line = next(line for line in output.splitlines() if line.startswith("Link:"))
     raw_token = link_line.split("token=")[1].split("&")[0]
 
@@ -80,10 +86,25 @@ async def test_email_change_rejects_email_already_registered(async_client, test_
 
     change_response = await async_client.post(
         "/v1/users/me/email/change",
-        json={"new_email": other_email},
+        json={"new_email": other_email, "current_password": test_library_and_user["password"]},
         headers=headers,
     )
     assert change_response.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_email_change_rejects_wrong_current_password(async_client, test_library_and_user):
+    access_token = await _login(
+        async_client, test_library_and_user["email"], test_library_and_user["password"]
+    )
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    change_response = await async_client.post(
+        "/v1/users/me/email/change",
+        json={"new_email": f"new-{uuid4().hex}@test.com", "current_password": "wrong-password"},
+        headers=headers,
+    )
+    assert change_response.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -105,7 +126,7 @@ async def test_confirm_email_change_token_is_single_use(async_client, test_libra
 
     await async_client.post(
         "/v1/users/me/email/change",
-        json={"new_email": new_email},
+        json={"new_email": new_email, "current_password": test_library_and_user["password"]},
         headers=headers,
     )
     output = capsys.readouterr().out
@@ -116,4 +137,4 @@ async def test_confirm_email_change_token_is_single_use(async_client, test_libra
     assert first_confirm.status_code == 204
 
     second_confirm = await async_client.post("/v1/auth/confirm-email-change", json={"token": raw_token})
-    assert second_confirm.status_code == 400
+    assert second_confirm.status_code == 409

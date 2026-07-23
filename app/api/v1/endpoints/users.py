@@ -228,6 +228,7 @@ async def reset_tour(
     "does not change until that link is confirmed (see POST /auth/confirm-email-change), so a "
     "typo'd or unreachable address can never lock the account out.",
     responses={
+        401: {"description": "Incorrect current password"},
         409: {"description": "Email already registered to another account"},
     }
 )
@@ -239,7 +240,9 @@ async def request_email_change(
     use_case: RequestEmailChangeUseCase = Depends(get_request_email_change_use_case),
 ) -> Response:
     await use_case.execute(
-        RequestEmailChangeInput(user_id=UUID(payload["sub"]), new_email=body.new_email)
+        RequestEmailChangeInput(
+            user_id=UUID(payload["sub"]), new_email=body.new_email, current_password=body.current_password
+        )
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

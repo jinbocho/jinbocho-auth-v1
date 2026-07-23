@@ -1,0 +1,9 @@
+A request was made to change your Jinbocho account's email address to {{ new_email }}.
+
+The change will only take effect once that new address confirms it, and this mailbox will keep working as normal until then.
+
+If this was you, no action is needed.
+
+If this WASN'T you, your account session may be compromised — reset your password now:
+
+{{ reset_link }}

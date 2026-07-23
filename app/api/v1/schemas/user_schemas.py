@@ -91,7 +91,11 @@ class MeUpdate(BaseModel):
 class EmailChangeRequest(BaseModel):
     """Request body to start a verified email change for the current user."""
     new_email: EmailStr = Field(description="The new email address to verify and switch to")
+    current_password: str = Field(
+        description="The account's current password — re-authentication so a stolen "
+        "session token alone can't redirect the account to an attacker-controlled address"
+    )
 
     model_config = ConfigDict(
-        json_schema_extra={"example": {"new_email": "jane.new@example.com"}}
+        json_schema_extra={"example": {"new_email": "jane.new@example.com", "current_password": "hunter2"}}
     )

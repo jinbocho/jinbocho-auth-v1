@@ -277,6 +277,19 @@ class FakeEmailSender(EmailService):
             {"to_email": to_email, "link": link, "purpose": "email_change", "language": language}
         )
 
+    def send_email_change_requested_notice(
+        self, to_email: str, new_email: str, reset_link: str, language: str | None = None
+    ) -> None:
+        self.sent.append(
+            {
+                "to_email": to_email,
+                "new_email": new_email,
+                "link": reset_link,
+                "purpose": "email_change_requested_notice",
+                "language": language,
+            }
+        )
+
 
 # static guard: mypy fails here if FakeEmailSender diverges from EmailService port
 _check: EmailService = FakeEmailSender()

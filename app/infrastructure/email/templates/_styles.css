@@ -16,27 +16,6 @@ a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !im
   text-align: center;
   border-radius: 14px 14px 0 0;
 }
-.logo-wrap {
-  display: inline-block;
-  background: #ffffff;
-  border-radius: 50%;
-  width: 54px;
-  height: 54px;
-  text-align: center;
-  vertical-align: middle;
-  margin-right: 14px;
-  padding: 5px;
-  box-sizing: border-box;
-}
-.brand-name {
-  display: inline-block;
-  vertical-align: middle;
-  color: #ffffff;
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-}
 
 /* ── Accent bar ──────────────────────────────────────────── */
 .accent-bar { background-color: #bc002d; height: 4px; font-size: 0; line-height: 0; }

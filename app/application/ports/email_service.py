@@ -46,3 +46,11 @@ class EmailService(Protocol):
         link: str,
         language: str | None = None,
     ) -> None: ...
+
+    def send_email_change_requested_notice(
+        self,
+        to_email: str,
+        new_email: str,
+        reset_link: str,
+        language: str | None = None,
+    ) -> None: ...

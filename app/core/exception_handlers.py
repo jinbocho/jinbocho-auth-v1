@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from app.domain.exceptions import (
     ConfirmationMismatchError,
     EmailAlreadyRegisteredError,
+    EmailChangeTokenAlreadyUsedError,
     EntityNotFoundError,
     ForbiddenError,
     InactiveUserError,
@@ -73,6 +74,10 @@ def configure_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ConfirmationMismatchError, _make_handler(status.HTTP_400_BAD_REQUEST))
     app.add_exception_handler(InvalidResetTokenError, _make_handler(status.HTTP_400_BAD_REQUEST))
     app.add_exception_handler(InvalidEmailChangeTokenError, _make_handler(status.HTTP_400_BAD_REQUEST))
+    # Registered separately (exact-type match wins over its InvalidEmailChangeTokenError
+    # parent below): a reused token means the change already went through, not that the
+    # link is broken — the FE needs 409 to tell the two cases apart.
+    app.add_exception_handler(EmailChangeTokenAlreadyUsedError, _make_handler(status.HTTP_409_CONFLICT))
     app.add_exception_handler(InvalidImageUploadError, _make_handler(status.HTTP_400_BAD_REQUEST))
     app.add_exception_handler(ValidationError, _make_handler(status.HTTP_400_BAD_REQUEST))
     app.add_exception_handler(EmailAlreadyRegisteredError, _make_handler(status.HTTP_409_CONFLICT))
